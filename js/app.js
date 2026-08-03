@@ -105,6 +105,7 @@
   const epciSearchField = document.getElementById("epciSearchField");
   const epciSelect = document.getElementById("epciSelect");
   const epciList = document.getElementById("epciList");
+  const mapScaleSelect = document.getElementById("mapScaleSelect");
 
   function populateEpciSelect() {
     const regular = state.epcis.filter((item) => !item.special).sort((a, b) => a.name.localeCompare(b.name, "fr"));
@@ -132,7 +133,8 @@
       const communeCode = layer.feature.properties.code;
       if (state.scale === "commune") {
         const selected = communeCode === selectedCode;
-        layer.setStyle({ fillColor: selected ? "#00a7b5" : "#000091", fillOpacity: selected ? 0.22 : 0.03, weight: selected ? 1.6 : 0.6, color: selected ? "#00a7b5" : "#8a9bb0" });
+        layer.setStyle({ fillColor: selected ? "#00a7b5" : "#dce8f1", fillOpacity: selected ? 0.42 : 0.28, weight: selected ? 2.2 : 0.85, color: selected ? "#007f8b" : "#71869a", opacity: 1 });
+        layer.bringToFront();
         return;
       }
       const epci = state.epcis.find((item) => item.members.includes(communeCode));
@@ -145,18 +147,16 @@
   function setMapScale(scale) {
     state.scale = scale;
     state.selected = null;
+    mapScaleSelect.value = scale;
     searchInput.value = "";
     epciSelect.value = "";
     updateEpciChoices();
     communeSearchField.hidden = scale !== "commune";
     epciSearchField.hidden = scale !== "epci";
-    document.querySelectorAll("[data-map-scale]").forEach((button) => button.classList.toggle("active", button.dataset.mapScale === scale));
     resetMapSelection();
   }
 
-  document.querySelectorAll("[data-map-scale]").forEach((button) => {
-    button.addEventListener("click", () => setMapScale(button.dataset.mapScale));
-  });
+  mapScaleSelect.addEventListener("change", () => setMapScale(mapScaleSelect.value));
   epciSelect.addEventListener("change", () => {
     if (epciSelect.value) selectEpci(epciSelect.value);
   });
@@ -285,6 +285,10 @@
   function selectCommune(code) {
     state.scale = "commune";
     state.selected = code;
+    mapScaleSelect.value = "commune";
+    communeSearchField.hidden = false;
+    epciSearchField.hidden = true;
+    updateEpciChoices();
     const c = state.communesByCode.get(code);
     if (c) {
       searchInput.value = c.name;
@@ -300,6 +304,9 @@
     if (!epci) return;
     state.scale = "epci";
     state.selected = code;
+    mapScaleSelect.value = "epci";
+    communeSearchField.hidden = true;
+    epciSearchField.hidden = false;
     epciSelect.value = code;
     updateEpciChoices(code);
     const visibleLayers = [];
