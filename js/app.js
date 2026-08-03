@@ -357,6 +357,7 @@
       </section>
       ${outRows.length ? `<div class="trajectory-card"><strong>Top destinations (sortant)</strong>${rowsHtml(outRows, "dname")}</div>` : ""}
       ${inRows.length ? `<div class="trajectory-card"><strong>Top origines (entrant)</strong>${rowsHtml(inRows, "oname")}</div>` : ""}
+      <a class="profile-link" href="fiche.html?code=${encodeURIComponent(code)}" target="_blank" rel="noopener">Voir la fiche communale complète <span>↗</span></a>
       <p class="detail-method">Valeurs calculées selon le seuil et les sens de flux actuellement affichés.</p>
     `;
     detailPanel.classList.add("open");

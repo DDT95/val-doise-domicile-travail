@@ -1,4 +1,8 @@
 data/raw/base-flux-mobilite-domicile-lieu-travail-2022.csv
 data/raw/base-flux-csv.zip
 data/raw/all_communes.json
+data/raw/RP2022_mobpro.parquet
+data/raw/varmod_mobpro_2022.csv
+.venv-data/
+tmp/
 .DS_Store

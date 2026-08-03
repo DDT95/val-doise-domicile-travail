@@ -6,7 +6,9 @@ Carte interactive des flux domicile-travail dans le Val d'Oise (95), inspirée d
 
 ## Données
 
-Source : INSEE, [« Mobilités professionnelles en 2022 : déplacements domicile — lieu de travail »](https://www.insee.fr/fr/statistiques/8582949) (RP2022), Licence Ouverte / Open Licence (Etalab).
+Sources INSEE RP2022, Licence Ouverte / Open Licence (Etalab) :
+- [base agrégée des flux domicile-travail](https://www.insee.fr/fr/statistiques/8582949), utilisée pour la carte ;
+- [fichier détail Mobilités professionnelles](https://www.insee.fr/fr/statistiques/8589904), utilisé avec le poids individuel `IPONDI` pour les fiches communales.
 
 Les contours communaux proviennent de [france-geojson](https://github.com/gregoiredavid/france-geojson) et les centroïdes de communes de [geo.api.gouv.fr](https://geo.api.gouv.fr/).
 
@@ -25,21 +27,27 @@ Puis ouvrir `http://localhost:8420`.
 Télécharger dans `data/raw/` :
 - `base-flux-mobilite-domicile-lieu-travail-2022.csv` depuis la [page INSEE](https://www.insee.fr/fr/statistiques/8582949)
 - `all_communes.json` : `curl "https://geo.api.gouv.fr/communes?fields=nom,code,centre,codeDepartement&format=json&geometry=centre" -o data/raw/all_communes.json`
+- `RP2022_mobpro.parquet` et `varmod_mobpro_2022.csv` depuis la [page du fichier détail INSEE](https://www.insee.fr/fr/statistiques/8589904)
 
 Puis :
 
 ```
 pip install pandas
 python3 scripts/build_data.py
+python3 scripts/build_profiles.py
 ```
 
 ## Structure
 
 ```
 index.html              page principale (carte + onglet Comprendre)
+fiche.html              fiche communale complète et export PDF à la demande
 css/style.css
+css/fiche.css
 js/app.js                logique D3 (projection, arcs courbes, interactions)
+js/fiche.js              rendu des profils communaux et options d’export
 data/processed/          jeux de données utilisés par la carte
 data/raw/                sources brutes (partiellement gitignorées, voir README)
 scripts/build_data.py    reconstruction des jeux de données
+scripts/build_profiles.py agrégation pondérée du fichier détail INSEE
 ```
