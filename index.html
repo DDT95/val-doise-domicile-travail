@@ -31,13 +31,22 @@
       <div>
         <span class="eyebrow">LECTURE CARTOGRAPHIQUE</span>
         <h2>Explorer les flux</h2>
-        <p>Sélectionnez une commune du Val-d'Oise pour visualiser ses liaisons domicile-travail avec le reste du territoire.</p>
+        <p>Choisissez une commune ou un EPCI pour visualiser ses liaisons domicile-travail avec le reste du territoire.</p>
       </div>
     </div>
 
-    <label class="search-box">
+    <div class="map-scale-toggle" role="group" aria-label="Échelle d’analyse">
+      <button type="button" class="active" data-map-scale="commune">Commune</button>
+      <button type="button" data-map-scale="epci">EPCI</button>
+    </div>
+
+    <label class="search-box" id="communeSearchField">
       <span>Rechercher une commune</span>
       <div><input id="searchInput" type="search" placeholder="Ex. Argenteuil" autocomplete="off"><button id="searchButton" aria-label="Rechercher">→</button></div>
+    </label>
+    <label class="epci-picker" id="epciSearchField" hidden>
+      <span>Choisir un EPCI</span>
+      <select id="epciSelect" aria-label="Choisir un EPCI"></select>
     </label>
     <div id="searchResults" class="search-results" hidden></div>
 
@@ -62,7 +71,7 @@
 
     <div class="sidebar-hint">
       <strong>Astuce</strong>
-      Cliquez une commune sur la carte ou utilisez la recherche : ses flux domicile-travail apparaissent dans le panneau à droite.
+      Cliquez un territoire sur la carte ou utilisez le sélecteur : ses flux domicile-travail apparaissent dans le panneau à droite.
     </div>
 
     <button id="openComprendre3" class="sources-inline">Sources, millésimes et licences</button>

@@ -5,8 +5,11 @@
     communes: [],
     communesByCode: new Map(),
     communesByName: new Map(),
+    epcis: [],
+    epcisByCode: new Map(),
     flows: [],
     selected: null,
+    scale: "commune",
     showOut: true,
     showIn: true,
     threshold: 10,
@@ -54,7 +57,8 @@
     d3.json("data/processed/communes95.geojson"),
     d3.json("data/processed/communes95.json"),
     d3.json("data/processed/flows.json"),
-  ]).then(([dept95, communes95Geo, communes95, flows]) => {
+    d3.json("data/processed/epci_profiles.json"),
+  ]).then(([dept95, communes95Geo, communes95, flows, epciProfiles]) => {
     deptLayer = L.geoJSON(dept95, {
       style: { color: "#000091", weight: 2, fill: false, opacity: 0.55 },
     }).addTo(map);
@@ -62,7 +66,7 @@
     communesLayer = L.geoJSON(communes95Geo, {
       style: () => ({ color: "#8a9bb0", weight: 0.6, fillColor: "#000091", fillOpacity: 0.03 }),
       onEachFeature: (feature, layer) => {
-        layer.on("click", () => selectCommune(feature.properties.code));
+        layer.on("click", () => selectFromMap(feature.properties.code));
         layer.bindTooltip(feature.properties.nom, { sticky: true, className: "commune-tip" });
       },
     }).addTo(map);
@@ -71,17 +75,55 @@
     state.communesByCode = new Map(communes95.map((c) => [c.code, c]));
     state.communesByName = new Map(communes95.map((c) => [c.name.toLowerCase(), c]));
     state.flows = flows;
+    state.epcis = Object.values(epciProfiles);
+    state.epcisByCode = new Map(state.epcis.map((epci) => [epci.code, epci]));
+    populateEpciSelect();
 
     document.getElementById("mapStatus").textContent = `${flows.length.toLocaleString("fr-FR")} liaisons chargées`;
     updateOverlayFrame();
     if (deptLayer) map.fitBounds(deptLayer.getBounds(), { padding: [24, 24], animate: false });
     renderEmptyState();
+    const initialParams = new URLSearchParams(location.search);
+    if (initialParams.get("type") === "epci" && state.epcisByCode.has(initialParams.get("id"))) {
+      setMapScale("epci");
+      epciSelect.value = initialParams.get("id");
+      selectEpci(initialParams.get("id"));
+    } else if (initialParams.get("type") === "commune" && state.communesByCode.has(initialParams.get("id"))) {
+      selectCommune(initialParams.get("id"));
+    }
   });
 
   // ---------- Search ----------
   const searchInput = document.getElementById("searchInput");
   const searchButton = document.getElementById("searchButton");
   const searchResults = document.getElementById("searchResults");
+  const communeSearchField = document.getElementById("communeSearchField");
+  const epciSearchField = document.getElementById("epciSearchField");
+  const epciSelect = document.getElementById("epciSelect");
+
+  function populateEpciSelect() {
+    const regular = state.epcis.filter((item) => !item.special).sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    const special = state.epcis.filter((item) => item.special).sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    epciSelect.innerHTML = `<option value="">Sélectionner…</option><optgroup label="EPCI du Val-d’Oise">${regular.map((item) => `<option value="${item.code}">${item.name}</option>`).join("")}</optgroup><optgroup label="Communes particulières">${special.map((item) => `<option value="${item.code}">${item.name} · commune</option>`).join("")}</optgroup>`;
+  }
+
+  function setMapScale(scale) {
+    state.scale = scale;
+    state.selected = null;
+    searchInput.value = "";
+    epciSelect.value = "";
+    communeSearchField.hidden = scale !== "commune";
+    epciSearchField.hidden = scale !== "epci";
+    document.querySelectorAll("[data-map-scale]").forEach((button) => button.classList.toggle("active", button.dataset.mapScale === scale));
+    resetMapSelection();
+  }
+
+  document.querySelectorAll("[data-map-scale]").forEach((button) => {
+    button.addEventListener("click", () => setMapScale(button.dataset.mapScale));
+  });
+  epciSelect.addEventListener("change", () => {
+    if (epciSelect.value) selectEpci(epciSelect.value);
+  });
 
   function renderSearchResults(query) {
     const q = query.trim().toLowerCase();
@@ -160,9 +202,10 @@
   });
 
   // ---------- Reset view ----------
-  document.getElementById("resetView").addEventListener("click", () => {
+  function resetMapSelection() {
     state.selected = null;
     searchInput.value = "";
+    epciSelect.value = "";
     searchResults.hidden = true;
     sidebarEl.classList.remove("open");
     mobileLayersBtn.setAttribute("aria-expanded", "false");
@@ -180,7 +223,8 @@
     if (deptLayer) map.fitBounds(deptLayer.getBounds(), { padding: [24, 24], animate: false });
     else map.setView(VDO_CENTER, 10, { animate: false });
     renderEmptyState();
-  });
+  }
+  document.getElementById("resetView").addEventListener("click", resetMapSelection);
 
   // ---------- Comprendre dialog ----------
   const comprendreDialog = document.getElementById("comprendreDialog");
@@ -196,13 +240,44 @@
   });
 
   // ---------- Selection ----------
+  function selectFromMap(code) {
+    if (state.scale === "commune") {
+      selectCommune(code);
+      return;
+    }
+    const epci = state.epcis.find((item) => item.members.includes(code));
+    if (epci) {
+      epciSelect.value = epci.code;
+      selectEpci(epci.code);
+    }
+  }
+
   function selectCommune(code) {
+    state.scale = "commune";
     state.selected = code;
     const c = state.communesByCode.get(code);
     if (c) {
       searchInput.value = c.name;
       map.setView([c.lat, c.lon], Math.max(map.getZoom(), 11), { animate: false });
+      document.getElementById("mapStatus").textContent = `${c.name} · flux communaux affichés`;
     }
+    updateOverlayFrame();
+    render();
+  }
+
+  function selectEpci(code) {
+    const epci = state.epcisByCode.get(code);
+    if (!epci) return;
+    state.scale = "epci";
+    state.selected = code;
+    const visibleLayers = [];
+    communesLayer.eachLayer((layer) => {
+      if (epci.members.includes(layer.feature.properties.code)) visibleLayers.push(layer);
+    });
+    if (visibleLayers.length) {
+      map.fitBounds(L.featureGroup(visibleLayers).getBounds(), { padding: [45, 45], animate: false, maxZoom: 11 });
+    }
+    document.getElementById("mapStatus").textContent = `${epci.name} · flux agrégés affichés`;
     updateOverlayFrame();
     render();
   }
@@ -222,6 +297,37 @@
     return `M${x0},${y0} Q${cx},${cy} ${x1},${y1}`;
   }
 
+  function aggregateEpciRows(epci) {
+    const members = new Set(epci.members);
+    const centers = epci.members.map((code) => state.communesByCode.get(code)).filter(Boolean);
+    const center = {
+      lon: d3.mean(centers, (item) => item.lon) || 2.15,
+      lat: d3.mean(centers, (item) => item.lat) || 49.05,
+    };
+    const grouped = new Map();
+    state.flows.forEach((flow) => {
+      const originInside = members.has(flow.o);
+      const destinationInside = members.has(flow.d);
+      if (originInside === destinationInside) return;
+      const isOut = originInside;
+      if (isOut && !state.showOut) return;
+      if (!isOut && !state.showIn) return;
+      const otherCode = isOut ? flow.d : flow.o;
+      const key = `${isOut ? "out" : "in"}:${otherCode}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, isOut ? {
+          o: epci.code, oname: epci.name, olon: center.lon, olat: center.lat,
+          d: flow.d, dname: flow.dname, dlon: flow.dlon, dlat: flow.dlat, v: 0,
+        } : {
+          o: flow.o, oname: flow.oname, olon: flow.olon, olat: flow.olat,
+          d: epci.code, dname: epci.name, dlon: center.lon, dlat: center.lat, v: 0,
+        });
+      }
+      grouped.get(key).v += flow.v;
+    });
+    return Array.from(grouped.values()).filter((flow) => flow.v >= state.threshold);
+  }
+
   function render() {
     if (!state.selected) {
       gArcs.selectAll("path").remove();
@@ -229,7 +335,9 @@
       return;
     }
     const code = state.selected;
-    const rows = state.flows.filter((f) => {
+    const selectedProfile = state.scale === "epci" ? state.epcisByCode.get(code) : state.communesByCode.get(code);
+    const members = new Set(state.scale === "epci" ? selectedProfile.members : [code]);
+    const rows = state.scale === "epci" ? aggregateEpciRows(selectedProfile) : state.flows.filter((f) => {
       if (f.v < state.threshold) return false;
       const isOut = f.o === code;
       const isIn = f.d === code;
@@ -241,7 +349,7 @@
 
     if (communesLayer) {
       communesLayer.eachLayer((layer) => {
-        const isSel = layer.feature.properties.code === code;
+        const isSel = members.has(layer.feature.properties.code);
         layer.setStyle({
           fillColor: isSel ? "#00a7b5" : "#000091",
           fillOpacity: isSel ? 0.22 : 0.03,
@@ -310,7 +418,7 @@
   }
 
   function renderStats(code, rows) {
-    const c = state.communesByCode.get(code);
+    const c = state.scale === "epci" ? state.epcisByCode.get(code) : state.communesByCode.get(code);
     const detailPanel = document.getElementById("detailPanel");
     const detailContent = document.getElementById("detailContent");
     if (!c) {
@@ -327,6 +435,11 @@
     const balance = totalIn - totalOut;
     const maxRank = Math.max(outRows[0]?.v || 0, inRows[0]?.v || 0, 1);
     const format = (value) => Math.round(value).toLocaleString("fr-FR");
+    const isEpci = state.scale === "epci" && !c.special;
+    const territoryType = isEpci ? "EPCI" : "Commune";
+    const profileUrl = state.scale === "epci"
+      ? `fiche.html?type=epci&id=${encodeURIComponent(code)}`
+      : `fiche.html?type=commune&id=${encodeURIComponent(code)}`;
 
     const rowsHtml = (arr, key) =>
       arr
@@ -339,7 +452,7 @@
         .join("");
 
     detailContent.innerHTML = `
-      <span class="detail-tag">MOBILITÉS · VAL-D'OISE</span>
+      <span class="detail-tag">${territoryType.toUpperCase()} · MOBILITÉS · VAL-D'OISE</span>
       <h2>${c.name}</h2>
       <p class="subtitle">Flux domicile-travail · INSEE RP2022</p>
       <div class="property-grid">
@@ -348,7 +461,7 @@
       </div>
       <section class="flow-profile" aria-label="Profil des flux">
         <div class="flow-donut" style="--out-share:${outShare * 3.6}deg"><div><strong>${total ? Math.max(outShare, inShare) : 0}%</strong><small>${outShare >= inShare ? "sortants" : "entrants"}</small></div></div>
-        <div class="profile-copy"><span>Profil des échanges</span><strong>${outShare >= inShare ? "Commune plutôt résidentielle" : "Commune plutôt attractive"}</strong><p>${outShare}% sortants · ${inShare}% entrants</p></div>
+        <div class="profile-copy"><span>Profil des échanges</span><strong>${territoryType} plutôt ${outShare >= inShare ? "résidentiel" : "attractif"}</strong><p>${outShare}% sortants · ${inShare}% entrants</p></div>
       </section>
       <section class="balance-card ${balance >= 0 ? "positive" : "negative"}">
         <div><span>Balance des flux</span><strong>${balance >= 0 ? "+" : "−"}${format(Math.abs(balance))}</strong></div>
@@ -357,15 +470,15 @@
       </section>
       ${outRows.length ? `<div class="trajectory-card"><strong>Top destinations (sortant)</strong>${rowsHtml(outRows, "dname")}</div>` : ""}
       ${inRows.length ? `<div class="trajectory-card"><strong>Top origines (entrant)</strong>${rowsHtml(inRows, "oname")}</div>` : ""}
-      <a class="profile-link" href="fiche.html?code=${encodeURIComponent(code)}" target="_blank" rel="noopener">Voir la fiche communale complète <span>↗</span></a>
-      <p class="detail-method">Valeurs calculées selon le seuil et les sens de flux actuellement affichés.</p>
+      <a class="profile-link" href="${profileUrl}" target="_blank" rel="noopener">Voir la fiche ${isEpci ? "EPCI" : "communale"} complète et le PDF <span>↗</span></a>
+      <p class="detail-method">Valeurs cartographiques calculées selon le seuil et les sens de flux affichés. La fiche complète utilise les microdonnées pondérées INSEE.</p>
     `;
     detailPanel.classList.add("open");
   }
 
   function renderEmptyState() {
     document.getElementById("detailPanel").classList.remove("open");
-    document.getElementById("mapStatus").textContent = "Val-d’Oise · sélectionnez une commune pour révéler ses flux";
+    document.getElementById("mapStatus").textContent = `Val-d’Oise · sélectionnez ${state.scale === "epci" ? "un EPCI" : "une commune"} pour révéler ses flux`;
   }
 
   document.getElementById("closeDetail").addEventListener("click", () => {

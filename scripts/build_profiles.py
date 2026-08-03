@@ -74,6 +74,7 @@ def build_profile(code, name, members, df, labels, kind="commune", special=False
         "kind": kind,
         "special": special,
         "member_count": len(members),
+        "members": members,
         "residents": round(total, 1),
         "workers": round(workers.IPONDI.sum(), 1),
         "local": round(residents.loc[residents.DCLT.isin(member_set), "IPONDI"].sum(), 1),
