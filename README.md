@@ -8,7 +8,7 @@ Carte interactive des flux domicile-travail dans le Val d'Oise (95), inspirée d
 
 Sources INSEE RP2022, Licence Ouverte / Open Licence (Etalab) :
 - [base agrégée des flux domicile-travail](https://www.insee.fr/fr/statistiques/8582949), utilisée pour la carte ;
-- [fichier détail Mobilités professionnelles](https://www.insee.fr/fr/statistiques/8589904), utilisé avec le poids individuel `IPONDI` pour les fiches communales.
+- [fichier détail Mobilités professionnelles](https://www.insee.fr/fr/statistiques/8589904), utilisé avec le poids individuel `IPONDI` pour les fiches communales et intercommunales.
 
 Les contours communaux proviennent de [france-geojson](https://github.com/gregoiredavid/france-geojson) et les centroïdes de communes de [geo.api.gouv.fr](https://geo.api.gouv.fr/).
 
@@ -41,13 +41,13 @@ python3 scripts/build_profiles.py
 
 ```
 index.html              page principale (carte + onglet Comprendre)
-fiche.html              fiche communale complète et export PDF à la demande
+fiche.html              explorateur commune/EPCI et export PDF à la demande
 css/style.css
 css/fiche.css
 js/app.js                logique D3 (projection, arcs courbes, interactions)
-js/fiche.js              rendu des profils communaux et options d’export
+js/fiche.js              navigation et rendu des profils commune/EPCI, options d’export
 data/processed/          jeux de données utilisés par la carte
 data/raw/                sources brutes (partiellement gitignorées, voir README)
 scripts/build_data.py    reconstruction des jeux de données
-scripts/build_profiles.py agrégation pondérée du fichier détail INSEE
+scripts/build_profiles.py agrégation pondérée aux échelles commune et EPCI
 ```

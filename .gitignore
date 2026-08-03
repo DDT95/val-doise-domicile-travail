@@ -3,6 +3,8 @@ data/raw/base-flux-csv.zip
 data/raw/all_communes.json
 data/raw/RP2022_mobpro.parquet
 data/raw/varmod_mobpro_2022.csv
+data/raw/communes95_epci.json
 .venv-data/
 tmp/
+__pycache__/
 .DS_Store
