@@ -152,6 +152,14 @@
     render();
   });
 
+  // ---------- Mobile sidebar toggle ----------
+  const sidebarEl = document.getElementById("layerSidebar");
+  const mobileLayersBtn = document.getElementById("mobileLayers");
+  mobileLayersBtn.addEventListener("click", () => {
+    const open = sidebarEl.classList.toggle("open");
+    mobileLayersBtn.setAttribute("aria-expanded", String(open));
+  });
+
   // ---------- Reset view ----------
   document.getElementById("resetView").addEventListener("click", () => {
     if (state.selected) {

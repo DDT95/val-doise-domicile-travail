@@ -17,6 +17,7 @@
     <h1>Domicile ↔ Travail</h1>
     <p>Flux domicile-travail communaux · déplacements pendulaires · INSEE 2022</p>
   </div>
+  <button id="mobileLayers" class="mobile-layers" aria-controls="layerSidebar" aria-expanded="false">Données</button>
   <button id="openComprendre" class="livebox" aria-haspopup="dialog">
     <span class="fresh-dot"></span>
     <div><strong>Comprendre la carte</strong><small>Méthode, source, licence</small></div>
@@ -24,7 +25,7 @@
 </header>
 
 <main class="workspace">
-  <aside class="sidebar" aria-label="Choix de la commune et des flux">
+  <aside id="layerSidebar" class="sidebar" aria-label="Choix de la commune et des flux">
     <div class="sidebar-intro">
       <div class="section-number">01</div>
       <div>

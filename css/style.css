@@ -116,8 +116,14 @@ input[type="range"]{width:100%;accent-color:var(--blue)}
   .title-block h1{font-size:24px}
   .source-cards{grid-template-columns:1fr}
 }
+.mobile-layers{display:none;border:1px solid #000091;border-radius:10px;background:#fff;color:#000091;padding:9px 12px;font-weight:700}
 @media(max-width:700px){
-  .workspace{height:calc(100% - 68px);display:block}
-  .sidebar{position:absolute;left:8px;right:8px;top:8px;bottom:8px;z-index:900;width:auto}
-  .map-shell{display:none}
+  .mobile-layers{display:block}
+  .topbar{grid-template-columns:72px 1fr auto}
+  .title-block .eyebrow,.title-block p{display:none}
+  .title-block h1{font-size:18px}
+  .workspace{height:calc(100% - 111px);display:block;padding:8px}
+  .sidebar{position:absolute;left:8px;top:8px;bottom:8px;z-index:900;width:min(330px,88vw);transform:translateX(calc(-100% - 16px));transition:.25s}
+  .sidebar.open{transform:none}
+  .map-shell{height:100%;width:100%}
 }
