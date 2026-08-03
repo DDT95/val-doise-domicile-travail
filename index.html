@@ -60,7 +60,10 @@
       <div class="range-row"><span>1</span><span>200</span></div>
     </div>
 
-    <div class="stats" id="stats"></div>
+    <div class="sidebar-hint">
+      <strong>Astuce</strong>
+      Cliquez une commune sur la carte ou utilisez la recherche : ses flux domicile-travail apparaissent dans le panneau à droite.
+    </div>
 
     <button id="openComprendre3" class="sources-inline">Sources, millésimes et licences</button>
     <div class="sidebar-footer">
@@ -79,6 +82,11 @@
     </div>
     <div class="map-note"><span class="pulse" style="width:8px;height:8px;border-radius:50%;background:#28a745"></span><span id="mapStatus">Chargement des données…</span></div>
   </section>
+
+  <aside id="detailPanel" class="detail-panel" aria-live="polite">
+    <button id="closeDetail" class="close-btn" aria-label="Fermer le panneau">×</button>
+    <div id="detailContent"></div>
+  </aside>
 </main>
 
 <dialog id="comprendreDialog" class="dialog">

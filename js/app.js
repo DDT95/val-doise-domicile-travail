@@ -295,9 +295,10 @@
 
   function renderStats(code, rows) {
     const c = state.communesByCode.get(code);
-    const statsEl = document.getElementById("stats");
+    const detailPanel = document.getElementById("detailPanel");
+    const detailContent = document.getElementById("detailContent");
     if (!c) {
-      statsEl.innerHTML = "";
+      detailPanel.classList.remove("open");
       return;
     }
     const outRows = rows.filter((r) => r.o === code).sort((a, b) => b.v - a.v);
@@ -305,20 +306,27 @@
     const totalOut = d3.sum(outRows, (d) => d.v);
     const totalIn = d3.sum(inRows, (d) => d.v);
 
-    const topList = (arr, key) =>
+    const rowsHtml = (arr, key) =>
       arr
-        .slice(0, 6)
-        .map((r) => `<li><b>${r[key]}</b><span>${Math.round(r.v).toLocaleString("fr-FR")}</span></li>`)
+        .slice(0, 10)
+        .map((r) => `<div class="trajectory-row"><b>${r[key]}</b><span>${Math.round(r.v).toLocaleString("fr-FR")} actifs</span></div>`)
         .join("");
 
-    statsEl.innerHTML = `
-      <h3>${c.name}</h3>
-      <div class="stat-kpis">
-        <div class="stat-kpi out"><strong>${Math.round(totalOut).toLocaleString("fr-FR")}</strong><span>Résidents actifs travaillant ailleurs</span></div>
-        <div class="stat-kpi"><strong>${Math.round(totalIn).toLocaleString("fr-FR")}</strong><span>Actifs venant y travailler</span></div>
+    detailContent.innerHTML = `
+      <span class="detail-tag">MOBILITÉS · VAL-D'OISE</span>
+      <h2>${c.name}</h2>
+      <p class="subtitle">Flux domicile-travail · INSEE RP2022</p>
+      <div class="property-grid">
+        <div class="property out"><small>Résidents actifs</small><strong>${Math.round(totalOut).toLocaleString("fr-FR")}</strong><small>travaillant ailleurs</small></div>
+        <div class="property"><small>Actifs</small><strong>${Math.round(totalIn).toLocaleString("fr-FR")}</strong><small>venant y travailler</small></div>
       </div>
-      ${outRows.length ? `<div class="top-list-title">Top destinations</div><ul class="top-list">${topList(outRows, "dname")}</ul>` : ""}
-      ${inRows.length ? `<div class="top-list-title">Top origines</div><ul class="top-list">${topList(inRows, "oname")}</ul>` : ""}
+      ${outRows.length ? `<div class="trajectory-card"><strong>Top destinations (sortant)</strong>${rowsHtml(outRows, "dname")}</div>` : ""}
+      ${inRows.length ? `<div class="trajectory-card"><strong>Top origines (entrant)</strong>${rowsHtml(inRows, "oname")}</div>` : ""}
     `;
+    detailPanel.classList.add("open");
   }
+
+  document.getElementById("closeDetail").addEventListener("click", () => {
+    document.getElementById("detailPanel").classList.remove("open");
+  });
 })();
