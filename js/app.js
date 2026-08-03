@@ -161,12 +161,25 @@
 
   // ---------- Reset view ----------
   document.getElementById("resetView").addEventListener("click", () => {
-    if (state.selected) {
-      const c = state.communesByCode.get(state.selected);
-      if (c) map.setView([c.lat, c.lon], 11, { animate: false });
-      return;
+    state.selected = null;
+    searchInput.value = "";
+    searchResults.hidden = true;
+    sidebarEl.classList.remove("open");
+    mobileLayersBtn.setAttribute("aria-expanded", "false");
+    document.getElementById("detailPanel").classList.remove("open");
+    if (communesLayer) {
+      communesLayer.eachLayer((layer) => layer.setStyle({
+        color: "#8a9bb0",
+        weight: 0.6,
+        fillColor: "#000091",
+        fillOpacity: 0.03,
+      }));
     }
-    map.setView(VDO_CENTER, 10, { animate: false });
+    gArcs.selectAll("path").remove();
+    gPoints.selectAll("circle").remove();
+    if (deptLayer) map.fitBounds(deptLayer.getBounds(), { padding: [24, 24], animate: false });
+    else map.setView(VDO_CENTER, 10, { animate: false });
+    renderEmptyState();
   });
 
   // ---------- Comprendre dialog ----------
