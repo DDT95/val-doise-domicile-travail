@@ -74,9 +74,8 @@
 
     document.getElementById("mapStatus").textContent = `${flows.length.toLocaleString("fr-FR")} liaisons chargées`;
     updateOverlayFrame();
-
-    const defaultCode = communes95[0] ? communes95[0].code : null;
-    if (defaultCode) selectCommune(defaultCode);
+    if (deptLayer) map.fitBounds(deptLayer.getBounds(), { padding: [24, 24], animate: false });
+    renderEmptyState();
   });
 
   // ---------- Search ----------
@@ -211,7 +210,11 @@
   }
 
   function render() {
-    if (!state.selected) return;
+    if (!state.selected) {
+      gArcs.selectAll("path").remove();
+      gPoints.selectAll("circle").remove();
+      return;
+    }
     const code = state.selected;
     const rows = state.flows.filter((f) => {
       if (f.v < state.threshold) return false;
@@ -305,11 +308,21 @@
     const inRows = rows.filter((r) => r.d === code).sort((a, b) => b.v - a.v);
     const totalOut = d3.sum(outRows, (d) => d.v);
     const totalIn = d3.sum(inRows, (d) => d.v);
+    const total = totalOut + totalIn;
+    const outShare = total ? Math.round((totalOut / total) * 100) : 0;
+    const inShare = total ? 100 - outShare : 0;
+    const balance = totalIn - totalOut;
+    const maxRank = Math.max(outRows[0]?.v || 0, inRows[0]?.v || 0, 1);
+    const format = (value) => Math.round(value).toLocaleString("fr-FR");
 
     const rowsHtml = (arr, key) =>
       arr
-        .slice(0, 10)
-        .map((r) => `<div class="trajectory-row"><b>${r[key]}</b><span>${Math.round(r.v).toLocaleString("fr-FR")} actifs</span></div>`)
+        .slice(0, 6)
+        .map((r, index) => `<div class="trajectory-row">
+          <span class="rank-index">${String(index + 1).padStart(2, "0")}</span>
+          <div class="rank-copy"><b>${r[key]}</b><i style="--bar:${Math.max(8, (r.v / maxRank) * 100)}%"></i></div>
+          <span>${format(r.v)}</span>
+        </div>`)
         .join("");
 
     detailContent.innerHTML = `
@@ -317,13 +330,28 @@
       <h2>${c.name}</h2>
       <p class="subtitle">Flux domicile-travail · INSEE RP2022</p>
       <div class="property-grid">
-        <div class="property out"><small>Résidents actifs</small><strong>${Math.round(totalOut).toLocaleString("fr-FR")}</strong><small>travaillant ailleurs</small></div>
-        <div class="property"><small>Actifs</small><strong>${Math.round(totalIn).toLocaleString("fr-FR")}</strong><small>venant y travailler</small></div>
+        <div class="property out"><small>Flux sortants affichés</small><strong>${format(totalOut)}</strong><small>${outRows.length} destinations</small></div>
+        <div class="property"><small>Flux entrants affichés</small><strong>${format(totalIn)}</strong><small>${inRows.length} origines</small></div>
       </div>
+      <section class="flow-profile" aria-label="Profil des flux">
+        <div class="flow-donut" style="--out-share:${outShare * 3.6}deg"><div><strong>${total ? Math.max(outShare, inShare) : 0}%</strong><small>${outShare >= inShare ? "sortants" : "entrants"}</small></div></div>
+        <div class="profile-copy"><span>Profil des échanges</span><strong>${outShare >= inShare ? "Commune plutôt résidentielle" : "Commune plutôt attractive"}</strong><p>${outShare}% sortants · ${inShare}% entrants</p></div>
+      </section>
+      <section class="balance-card ${balance >= 0 ? "positive" : "negative"}">
+        <div><span>Balance des flux</span><strong>${balance >= 0 ? "+" : "−"}${format(Math.abs(balance))}</strong></div>
+        <p>${balance >= 0 ? "Davantage d’actifs viennent y travailler." : "Davantage de résidents partent travailler ailleurs."}</p>
+        <div class="balance-track"><i style="width:${outShare}%"></i><b style="width:${inShare}%"></b></div>
+      </section>
       ${outRows.length ? `<div class="trajectory-card"><strong>Top destinations (sortant)</strong>${rowsHtml(outRows, "dname")}</div>` : ""}
       ${inRows.length ? `<div class="trajectory-card"><strong>Top origines (entrant)</strong>${rowsHtml(inRows, "oname")}</div>` : ""}
+      <p class="detail-method">Valeurs calculées selon le seuil et les sens de flux actuellement affichés.</p>
     `;
     detailPanel.classList.add("open");
+  }
+
+  function renderEmptyState() {
+    document.getElementById("detailPanel").classList.remove("open");
+    document.getElementById("mapStatus").textContent = "Val-d’Oise · sélectionnez une commune pour révéler ses flux";
   }
 
   document.getElementById("closeDetail").addEventListener("click", () => {
