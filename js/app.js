@@ -7,6 +7,7 @@
     communesByName: new Map(),
     epcis: [],
     epcisByCode: new Map(),
+    epciColors: new Map(),
     flows: [],
     selected: null,
     scale: "commune",
@@ -17,6 +18,7 @@
 
   // ---------- Map ----------
   const VDO_CENTER = [49.05, 2.15];
+  const EPCI_COLORS = ["#18753c", "#6f4c9b", "#009099", "#c76524", "#d64d70", "#477a3c", "#ce0500", "#b88a16", "#45556c", "#3978b8", "#e45756", "#168b87"];
   const map = L.map("map", { zoomControl: true, minZoom: 7, maxZoom: 15 }).setView(VDO_CENTER, 10);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -88,6 +90,8 @@
       setMapScale("epci");
       epciSelect.value = initialParams.get("id");
       selectEpci(initialParams.get("id"));
+    } else if (initialParams.get("scale") === "epci") {
+      setMapScale("epci");
     } else if (initialParams.get("type") === "commune" && state.communesByCode.has(initialParams.get("id"))) {
       selectCommune(initialParams.get("id"));
     }
@@ -100,11 +104,42 @@
   const communeSearchField = document.getElementById("communeSearchField");
   const epciSearchField = document.getElementById("epciSearchField");
   const epciSelect = document.getElementById("epciSelect");
+  const epciList = document.getElementById("epciList");
 
   function populateEpciSelect() {
     const regular = state.epcis.filter((item) => !item.special).sort((a, b) => a.name.localeCompare(b.name, "fr"));
     const special = state.epcis.filter((item) => item.special).sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    [...regular, ...special].forEach((item, index) => state.epciColors.set(item.code, EPCI_COLORS[index % EPCI_COLORS.length]));
     epciSelect.innerHTML = `<option value="">Sélectionner…</option><optgroup label="EPCI du Val-d’Oise">${regular.map((item) => `<option value="${item.code}">${item.name}</option>`).join("")}</optgroup><optgroup label="Communes particulières">${special.map((item) => `<option value="${item.code}">${item.name} · commune</option>`).join("")}</optgroup>`;
+    epciList.innerHTML = [...regular, ...special].map((item) => `<button type="button" class="epci-choice" data-epci-code="${item.code}" role="option" aria-selected="false" style="--epci-color:${state.epciColors.get(item.code)}"><i class="epci-switch" aria-hidden="true"></i><span><strong>${item.name}</strong><small>${item.special ? "Commune particulière · accès EPCI" : `${item.member_count || item.members.length} communes`}</small></span><em aria-hidden="true"></em></button>`).join("");
+    epciList.querySelectorAll(".epci-choice").forEach((button) => button.addEventListener("click", () => {
+      epciSelect.value = button.dataset.epciCode;
+      selectEpci(button.dataset.epciCode);
+    }));
+  }
+
+  function updateEpciChoices(code = "") {
+    epciList.querySelectorAll(".epci-choice").forEach((button) => {
+      const active = button.dataset.epciCode === code;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+  }
+
+  function styleTerritories(selectedCode = null) {
+    if (!communesLayer) return;
+    communesLayer.eachLayer((layer) => {
+      const communeCode = layer.feature.properties.code;
+      if (state.scale === "commune") {
+        const selected = communeCode === selectedCode;
+        layer.setStyle({ fillColor: selected ? "#00a7b5" : "#000091", fillOpacity: selected ? 0.22 : 0.03, weight: selected ? 1.6 : 0.6, color: selected ? "#00a7b5" : "#8a9bb0" });
+        return;
+      }
+      const epci = state.epcis.find((item) => item.members.includes(communeCode));
+      const color = epci ? state.epciColors.get(epci.code) : "#8a9bb0";
+      const selected = epci?.code === selectedCode;
+      layer.setStyle({ fillColor: color, fillOpacity: selected ? 0.6 : 0.32, weight: selected ? 2.4 : 1, color: selected ? color : "#ffffff", opacity: 1 });
+    });
   }
 
   function setMapScale(scale) {
@@ -112,6 +147,7 @@
     state.selected = null;
     searchInput.value = "";
     epciSelect.value = "";
+    updateEpciChoices();
     communeSearchField.hidden = scale !== "commune";
     epciSearchField.hidden = scale !== "epci";
     document.querySelectorAll("[data-map-scale]").forEach((button) => button.classList.toggle("active", button.dataset.mapScale === scale));
@@ -206,18 +242,12 @@
     state.selected = null;
     searchInput.value = "";
     epciSelect.value = "";
+    updateEpciChoices();
     searchResults.hidden = true;
     sidebarEl.classList.remove("open");
     mobileLayersBtn.setAttribute("aria-expanded", "false");
     document.getElementById("detailPanel").classList.remove("open");
-    if (communesLayer) {
-      communesLayer.eachLayer((layer) => layer.setStyle({
-        color: "#8a9bb0",
-        weight: 0.6,
-        fillColor: "#000091",
-        fillOpacity: 0.03,
-      }));
-    }
+    styleTerritories();
     gArcs.selectAll("path").remove();
     gPoints.selectAll("circle").remove();
     if (deptLayer) map.fitBounds(deptLayer.getBounds(), { padding: [24, 24], animate: false });
@@ -270,6 +300,8 @@
     if (!epci) return;
     state.scale = "epci";
     state.selected = code;
+    epciSelect.value = code;
+    updateEpciChoices(code);
     const visibleLayers = [];
     communesLayer.eachLayer((layer) => {
       if (epci.members.includes(layer.feature.properties.code)) visibleLayers.push(layer);
@@ -347,17 +379,7 @@
       return true;
     });
 
-    if (communesLayer) {
-      communesLayer.eachLayer((layer) => {
-        const isSel = members.has(layer.feature.properties.code);
-        layer.setStyle({
-          fillColor: isSel ? "#00a7b5" : "#000091",
-          fillOpacity: isSel ? 0.22 : 0.03,
-          weight: isSel ? 1.6 : 0.6,
-          color: isSel ? "#00a7b5" : "#8a9bb0",
-        });
-      });
-    }
+    styleTerritories(code);
 
     const maxV = d3.max(rows, (d) => d.v) || 1;
     const widthScale = d3.scaleSqrt().domain([state.threshold, Math.max(maxV, state.threshold + 1)]).range([0.8, 7]);
