@@ -79,6 +79,7 @@
     state.flows = flows;
     state.epcis = Object.values(epciProfiles);
     state.epcisByCode = new Map(state.epcis.map((epci) => [epci.code, epci]));
+    communeSelect.innerHTML = `<option value="">Sélectionner une commune…</option>${[...communes95].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((item) => `<option value="${item.code}">${item.name}</option>`).join("")}`;
     populateEpciSelect();
 
     document.getElementById("mapStatus").textContent = `${flows.length.toLocaleString("fr-FR")} liaisons chargées`;
@@ -102,6 +103,7 @@
   const searchButton = document.getElementById("searchButton");
   const searchResults = document.getElementById("searchResults");
   const communeSearchField = document.getElementById("communeSearchField");
+  const communeSelect = document.getElementById("communeSelect");
   const epciSearchField = document.getElementById("epciSearchField");
   const epciSelect = document.getElementById("epciSelect");
   const epciList = document.getElementById("epciList");
@@ -149,6 +151,7 @@
     state.selected = null;
     mapScaleSelect.value = scale;
     searchInput.value = "";
+    communeSelect.value = "";
     epciSelect.value = "";
     updateEpciChoices();
     communeSearchField.hidden = scale !== "commune";
@@ -159,6 +162,9 @@
   mapScaleSelect.addEventListener("change", () => setMapScale(mapScaleSelect.value));
   epciSelect.addEventListener("change", () => {
     if (epciSelect.value) selectEpci(epciSelect.value);
+  });
+  communeSelect.addEventListener("change", () => {
+    if (communeSelect.value) selectCommune(communeSelect.value);
   });
 
   function renderSearchResults(query) {
@@ -241,6 +247,7 @@
   function resetMapSelection() {
     state.selected = null;
     searchInput.value = "";
+    communeSelect.value = "";
     epciSelect.value = "";
     updateEpciChoices();
     searchResults.hidden = true;
@@ -292,6 +299,7 @@
     const c = state.communesByCode.get(code);
     if (c) {
       searchInput.value = c.name;
+      communeSelect.value = code;
       map.setView([c.lat, c.lon], Math.max(map.getZoom(), 11), { animate: false });
       document.getElementById("mapStatus").textContent = `${c.name} · flux communaux affichés`;
     }
