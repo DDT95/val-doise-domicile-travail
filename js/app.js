@@ -1,153 +1,149 @@
 (function () {
   "use strict";
 
-  // ---------- Tabs ----------
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach((b) => {
-        b.classList.remove("active");
-        b.setAttribute("aria-selected", "false");
-      });
-      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-      btn.classList.add("active");
-      btn.setAttribute("aria-selected", "true");
-      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-      if (btn.dataset.tab === "carte") setTimeout(resizeMap, 0);
-    });
-  });
-
-  // ---------- State ----------
   const state = {
-    communes: [],       // Val d'Oise communes with totals
+    communes: [],
     communesByCode: new Map(),
-    flows: [],           // all flows touching Val d'Oise
-    selected: null,       // selected commune code
-    direction: "both",
+    communesByName: new Map(),
+    flows: [],
+    selected: null,
+    showOut: true,
+    showIn: true,
     threshold: 10,
   };
 
-  const svg = d3.select("#map");
-  const gContext = svg.append("g").attr("class", "layer-context");
-  const gDept = svg.append("g").attr("class", "layer-dept");
-  const gCommunes = svg.append("g").attr("class", "layer-communes");
-  const gArcs = svg.append("g").attr("class", "layer-arcs");
-  const gPoints = svg.append("g").attr("class", "layer-points");
+  // ---------- Map ----------
+  const VDO_CENTER = [49.05, 2.15];
+  const map = L.map("map", { zoomControl: true, minZoom: 7, maxZoom: 15 }).setView(VDO_CENTER, 10);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(map);
 
-  let projection, path, width, height;
+  let communesLayer, deptLayer;
 
-  const zoom = d3.zoom()
-    .scaleExtent([0.7, 40])
-    .on("zoom", (event) => {
-      [gContext, gDept, gCommunes, gArcs, gPoints].forEach((g) =>
-        g.attr("transform", event.transform)
-      );
-    });
-  svg.call(zoom);
+  const overlaySvg = d3.select(map.getPanes().overlayPane).append("svg").attr("class", "flow-overlay");
+  const overlayG = overlaySvg.append("g").attr("class", "leaflet-zoom-hide");
+  const gArcs = overlayG.append("g").attr("class", "layer-arcs");
+  const gPoints = overlayG.append("g").attr("class", "layer-points");
 
-  function resizeMap() {
-    const wrap = document.querySelector(".map-wrap");
-    width = wrap.clientWidth;
-    height = wrap.clientHeight;
-    svg.attr("viewBox", [0, 0, width, height]);
+  function projectLatLon(lon, lat) {
+    return map.latLngToLayerPoint([lat, lon]);
   }
-  window.addEventListener("resize", () => {
-    resizeMap();
-    if (projection) fitProjection();
+
+  function updateOverlayFrame() {
+    const bounds = map.getBounds().pad(0.3);
+    const topLeft = map.latLngToLayerPoint(bounds.getNorthWest());
+    const bottomRight = map.latLngToLayerPoint(bounds.getSouthEast());
+    overlaySvg
+      .attr("width", bottomRight.x - topLeft.x)
+      .attr("height", bottomRight.y - topLeft.y)
+      .style("left", topLeft.x + "px")
+      .style("top", topLeft.y + "px");
+    overlayG.attr("transform", `translate(${-topLeft.x},${-topLeft.y})`);
+  }
+
+  map.on("zoom viewreset move moveend zoomend", () => {
+    updateOverlayFrame();
     render();
   });
 
-  function fitProjection(contextGeo) {
-    projection = d3.geoMercator();
-    projection.fitExtent(
-      [
-        [24, 24],
-        [width - 24, height - 24],
-      ],
-      contextGeo || window.__idfContext
-    );
-    path = d3.geoPath(projection);
-  }
-
   // ---------- Load data ----------
   Promise.all([
-    d3.json("data/processed/idf_context.geojson"),
     d3.json("data/processed/departement95.geojson"),
     d3.json("data/processed/communes95.geojson"),
     d3.json("data/processed/communes95.json"),
     d3.json("data/processed/flows.json"),
-  ]).then(([idfContext, dept95, communes95Geo, communes95, flows]) => {
-    window.__idfContext = idfContext;
-    resizeMap();
-    fitProjection(idfContext);
+  ]).then(([dept95, communes95Geo, communes95, flows]) => {
+    deptLayer = L.geoJSON(dept95, {
+      style: { color: "#000091", weight: 2, fill: false, opacity: 0.55 },
+    }).addTo(map);
 
-    gContext
-      .selectAll("path")
-      .data(idfContext.features)
-      .join("path")
-      .attr("d", path)
-      .attr("fill", "currentColor")
-      .attr("class", "ctx-dept")
-      .style("fill", "#232a33")
-      .style("stroke", "#2f3844")
-      .style("stroke-width", 0.6);
-
-    gCommunes
-      .selectAll("path")
-      .data(communes95Geo.features)
-      .join("path")
-      .attr("d", path)
-      .attr("class", "commune-poly")
-      .style("fill", "#33404d")
-      .style("stroke", "#4a5a6b")
-      .style("stroke-width", 0.5)
-      .style("cursor", "pointer")
-      .on("click", (event, d) => {
-        selectCommune(d.properties.code);
-      })
-      .append("title")
-      .text((d) => d.properties.nom);
-
-    gDept
-      .selectAll("path")
-      .data(dept95.features)
-      .join("path")
-      .attr("d", path)
-      .attr("fill", "none")
-      .style("stroke", "#f4c95d")
-      .style("stroke-width", 1.4);
+    communesLayer = L.geoJSON(communes95Geo, {
+      style: () => ({ color: "#8a9bb0", weight: 0.6, fillColor: "#000091", fillOpacity: 0.03 }),
+      onEachFeature: (feature, layer) => {
+        layer.on("click", () => selectCommune(feature.properties.code));
+        layer.bindTooltip(feature.properties.nom, { sticky: true, className: "commune-tip" });
+      },
+    }).addTo(map);
 
     state.communes = communes95;
     state.communesByCode = new Map(communes95.map((c) => [c.code, c]));
+    state.communesByName = new Map(communes95.map((c) => [c.name.toLowerCase(), c]));
     state.flows = flows;
 
-    populateCommuneList();
+    document.getElementById("mapStatus").textContent = `${flows.length.toLocaleString("fr-FR")} liaisons chargées`;
+    updateOverlayFrame();
 
     const defaultCode = communes95[0] ? communes95[0].code : null;
     if (defaultCode) selectCommune(defaultCode);
   });
 
-  function populateCommuneList() {
-    const datalist = document.getElementById("commune-list");
-    const sorted = [...state.communes].sort((a, b) => a.name.localeCompare(b.name, "fr"));
-    datalist.innerHTML = sorted
-      .map((c) => `<option value="${c.name}" data-code="${c.code}"></option>`)
+  // ---------- Search ----------
+  const searchInput = document.getElementById("searchInput");
+  const searchButton = document.getElementById("searchButton");
+  const searchResults = document.getElementById("searchResults");
+
+  function renderSearchResults(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      searchResults.hidden = true;
+      searchResults.innerHTML = "";
+      return;
+    }
+    const matches = state.communes
+      .filter((c) => c.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name, "fr"))
+      .slice(0, 8);
+    if (!matches.length) {
+      searchResults.hidden = true;
+      return;
+    }
+    searchResults.innerHTML = matches
+      .map((c) => `<button type="button" data-code="${c.code}">${c.name}</button>`)
       .join("");
+    searchResults.hidden = false;
+    searchResults.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectCommune(btn.dataset.code);
+        searchResults.hidden = true;
+      });
+    });
   }
 
-  // ---------- Controls ----------
-  const searchInput = document.getElementById("commune-search");
-  searchInput.addEventListener("change", () => {
-    const match = state.communes.find(
-      (c) => c.name.toLowerCase() === searchInput.value.trim().toLowerCase()
-    );
+  searchInput.addEventListener("input", () => renderSearchResults(searchInput.value));
+  searchInput.addEventListener("focus", () => renderSearchResults(searchInput.value));
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-box") && !e.target.closest(".search-results")) {
+      searchResults.hidden = true;
+    }
+  });
+  searchButton.addEventListener("click", () => {
+    const match = state.communesByName.get(searchInput.value.trim().toLowerCase());
     if (match) selectCommune(match.code);
   });
-
-  document.getElementById("direction").addEventListener("change", (e) => {
-    state.direction = e.target.value;
-    render();
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const match = state.communesByName.get(searchInput.value.trim().toLowerCase());
+      if (match) {
+        selectCommune(match.code);
+        searchResults.hidden = true;
+      }
+    }
   });
 
+  // ---------- Direction toggles ----------
+  document.querySelectorAll(".direction-toggle button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const dir = btn.dataset.dir;
+      if (dir === "out") state.showOut = !state.showOut;
+      if (dir === "in") state.showIn = !state.showIn;
+      btn.classList.toggle("active", dir === "out" ? state.showOut : state.showIn);
+      render();
+    });
+  });
+
+  // ---------- Threshold ----------
   const thresholdInput = document.getElementById("threshold");
   const thresholdVal = document.getElementById("threshold-val");
   thresholdInput.addEventListener("input", (e) => {
@@ -156,33 +152,48 @@
     render();
   });
 
+  // ---------- Reset view ----------
+  document.getElementById("resetView").addEventListener("click", () => {
+    if (state.selected) {
+      const c = state.communesByCode.get(state.selected);
+      if (c) map.setView([c.lat, c.lon], 11, { animate: false });
+      return;
+    }
+    map.setView(VDO_CENTER, 10, { animate: false });
+  });
+
+  // ---------- Comprendre dialog ----------
+  const comprendreDialog = document.getElementById("comprendreDialog");
+  ["openComprendre", "openComprendre2", "openComprendre3"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", () => comprendreDialog.showModal());
+  });
+  comprendreDialog.querySelectorAll("[data-close]").forEach((btn) =>
+    btn.addEventListener("click", () => comprendreDialog.close())
+  );
+  comprendreDialog.addEventListener("click", (e) => {
+    if (e.target === comprendreDialog) comprendreDialog.close();
+  });
+
+  // ---------- Selection ----------
   function selectCommune(code) {
     state.selected = code;
     const c = state.communesByCode.get(code);
-    if (c) searchInput.value = c.name;
+    if (c) {
+      searchInput.value = c.name;
+      map.setView([c.lat, c.lon], Math.max(map.getZoom(), 11), { animate: false });
+    }
+    updateOverlayFrame();
     render();
   }
 
   // ---------- Rendering ----------
-  const tooltip = document.getElementById("tooltip");
-  function showTooltip(event, html) {
-    tooltip.innerHTML = html;
-    tooltip.hidden = false;
-    const wrapRect = document.querySelector(".map-wrap").getBoundingClientRect();
-    tooltip.style.left = event.clientX - wrapRect.left + 14 + "px";
-    tooltip.style.top = event.clientY - wrapRect.top + 10 + "px";
-  }
-  function hideTooltip() {
-    tooltip.hidden = true;
-  }
-
   function curvedPath(x0, y0, x1, y1) {
     const dx = x1 - x0;
     const dy = y1 - y0;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const mx = (x0 + x1) / 2;
     const my = (y0 + y1) / 2;
-    // perpendicular offset, consistent curvature direction
     const offset = dist * 0.18;
     const nx = -dy / (dist || 1);
     const ny = dx / (dist || 1);
@@ -192,41 +203,46 @@
   }
 
   function render() {
-    if (!projection || !state.selected) return;
+    if (!state.selected) return;
     const code = state.selected;
     const rows = state.flows.filter((f) => {
       if (f.v < state.threshold) return false;
       const isOut = f.o === code;
       const isIn = f.d === code;
       if (!isOut && !isIn) return false;
-      if (state.direction === "out") return isOut;
-      if (state.direction === "in") return isIn;
-      return isOut || isIn;
+      if (isOut && !state.showOut) return false;
+      if (isIn && !state.showIn) return false;
+      return true;
     });
+
+    if (communesLayer) {
+      communesLayer.eachLayer((layer) => {
+        const isSel = layer.feature.properties.code === code;
+        layer.setStyle({
+          fillColor: isSel ? "#00a7b5" : "#000091",
+          fillOpacity: isSel ? 0.22 : 0.03,
+          weight: isSel ? 1.6 : 0.6,
+          color: isSel ? "#00a7b5" : "#8a9bb0",
+        });
+      });
+    }
 
     const maxV = d3.max(rows, (d) => d.v) || 1;
     const widthScale = d3.scaleSqrt().domain([state.threshold, Math.max(maxV, state.threshold + 1)]).range([0.8, 7]);
-    const opacityScale = d3.scaleSqrt().domain([state.threshold, Math.max(maxV, state.threshold + 1)]).range([0.35, 0.9]);
+    const opacityScale = d3.scaleSqrt().domain([state.threshold, Math.max(maxV, state.threshold + 1)]).range([0.4, 0.92]);
 
-    const selC = state.communesByCode.get(code);
-    gCommunes.selectAll(".commune-poly").style("fill", (d) =>
-      d.properties.code === code ? "#f4c95d" : "#33404d"
-    );
-
-    const arcs = rows
-      .map((f) => {
-        const isOut = f.o === code;
-        const [sx, sy] = projection([f.olon, f.olat]);
-        const [tx, ty] = projection([f.dlon, f.dlat]);
-        return {
-          ...f,
-          isOut,
-          d: curvedPath(sx, sy, tx, ty),
-          w: widthScale(f.v),
-          op: opacityScale(f.v),
-        };
-      })
-      .sort((a, b) => a.v - b.v);
+    const arcs = rows.map((f) => {
+      const isOut = f.o === code;
+      const s = projectLatLon(f.olon, f.olat);
+      const t = projectLatLon(f.dlon, f.dlat);
+      return {
+        ...f,
+        isOut,
+        d: curvedPath(s.x, s.y, t.x, t.y),
+        w: widthScale(f.v),
+        op: opacityScale(f.v),
+      };
+    }).sort((a, b) => a.v - b.v);
 
     gArcs
       .selectAll("path")
@@ -234,21 +250,11 @@
       .join("path")
       .attr("d", (d) => d.d)
       .attr("fill", "none")
-      .attr("stroke", (d) => (d.isOut ? "var(--accent)" : "var(--accent-in)"))
+      .attr("stroke", (d) => (d.isOut ? "#b8752a" : "#000091"))
       .attr("stroke-width", (d) => d.w)
       .attr("stroke-opacity", (d) => d.op)
-      .attr("stroke-linecap", "round")
-      .on("mousemove", (event, d) => {
-        const other = d.isOut ? d.dname : d.oname;
-        const verb = d.isOut ? "vers" : "depuis";
-        showTooltip(
-          event,
-          `<b>${Math.round(d.v).toLocaleString("fr-FR")}</b> actifs ${verb} <b>${other}</b>`
-        );
-      })
-      .on("mouseleave", hideTooltip);
+      .attr("stroke-linecap", "round");
 
-    // endpoint dots
     const points = [];
     const seen = new Set();
     arcs.forEach((d) => {
@@ -258,35 +264,23 @@
       const lon = d.isOut ? d.dlon : d.olon;
       const lat = d.isOut ? d.dlat : d.olat;
       const name = d.isOut ? d.dname : d.oname;
-      const [x, y] = projection([lon, lat]);
-      points.push({ x, y, name, isOut: d.isOut });
+      const p = projectLatLon(lon, lat);
+      points.push({ x: p.x, y: p.y, name, isOut: d.isOut, v: d.v });
     });
 
     gPoints
-      .selectAll("circle")
+      .selectAll("circle.endpoint")
       .data(points, (d) => d.name + d.isOut)
       .join("circle")
+      .attr("class", "endpoint")
       .attr("cx", (d) => d.x)
       .attr("cy", (d) => d.y)
-      .attr("r", 2.4)
-      .attr("fill", (d) => (d.isOut ? "var(--accent)" : "var(--accent-in)"))
-      .on("mousemove", (event, d) => showTooltip(event, `<b>${d.name}</b>`))
-      .on("mouseleave", hideTooltip);
-
-    if (selC) {
-      const [sx, sy] = projection([selC.lon, selC.lat]);
-      gPoints
-        .selectAll("circle.focus")
-        .data([selC])
-        .join("circle")
-        .attr("class", "focus")
-        .attr("cx", sx)
-        .attr("cy", sy)
-        .attr("r", 5)
-        .attr("fill", "#f4c95d")
-        .attr("stroke", "#20242b")
-        .attr("stroke-width", 1.2);
-    }
+      .attr("r", 2.6)
+      .attr("fill", (d) => (d.isOut ? "#b8752a" : "#000091"))
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 0.6)
+      .append("title")
+      .text((d) => `${d.name} — ${Math.round(d.v).toLocaleString("fr-FR")} actifs`);
 
     renderStats(code, rows);
   }
@@ -305,16 +299,18 @@
 
     const topList = (arr, key) =>
       arr
-        .slice(0, 5)
-        .map((r) => `<li><span>${r[key]}</span><span>${Math.round(r.v).toLocaleString("fr-FR")}</span></li>`)
+        .slice(0, 6)
+        .map((r) => `<li><b>${r[key]}</b><span>${Math.round(r.v).toLocaleString("fr-FR")}</span></li>`)
         .join("");
 
     statsEl.innerHTML = `
-      <h4>${c.name}</h4>
-      <div class="stat-row"><span>Résidents actifs sortants</span><b>${Math.round(totalOut).toLocaleString("fr-FR")}</b></div>
-      <div class="stat-row"><span>Actifs entrants (travail)</span><b>${Math.round(totalIn).toLocaleString("fr-FR")}</b></div>
-      ${outRows.length ? `<div class="stat-row" style="margin-top:0.5rem;"><em>Top destinations</em></div><ul class="top-list">${topList(outRows, "dname")}</ul>` : ""}
-      ${inRows.length ? `<div class="stat-row"><em>Top origines</em></div><ul class="top-list">${topList(inRows, "oname")}</ul>` : ""}
+      <h3>${c.name}</h3>
+      <div class="stat-kpis">
+        <div class="stat-kpi out"><strong>${Math.round(totalOut).toLocaleString("fr-FR")}</strong><span>Résidents actifs travaillant ailleurs</span></div>
+        <div class="stat-kpi"><strong>${Math.round(totalIn).toLocaleString("fr-FR")}</strong><span>Actifs venant y travailler</span></div>
+      </div>
+      ${outRows.length ? `<div class="top-list-title">Top destinations</div><ul class="top-list">${topList(outRows, "dname")}</ul>` : ""}
+      ${inRows.length ? `<div class="top-list-title">Top origines</div><ul class="top-list">${topList(inRows, "oname")}</ul>` : ""}
     `;
   }
 })();

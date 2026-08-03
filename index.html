@@ -1,95 +1,132 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Domicile ↔ Travail dans le Val d'Oise</title>
-<meta name="description" content="Carte interactive des flux domicile-travail dans le Val d'Oise, d'après les données INSEE RP2022.">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Flux domicile-travail dans le Val-d'Oise — DDT 95">
+<title>Domicile · Travail · Val-d'Oise · DDT 95</title>
+<link rel="preconnect" href="https://tile.openstreetmap.org">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">
-    <h1>Domicile <span aria-hidden="true">↔</span> Travail <span class="brand-sub">Val d'Oise</span></h1>
+  <a class="brand-logo-link" href="https://ddt95.github.io/atlas-territorial-95/" aria-label="Retour à l'Atlas territorial"><img class="brand-logo" src="assets/prefet-val-doise.svg" alt="Préfet du Val-d'Oise"></a>
+  <div class="title-block">
+    <span class="eyebrow">MOBILITÉS · DÉPLACEMENTS · VAL-D'OISE</span>
+    <h1>Domicile ↔ Travail</h1>
+    <p>Flux domicile-travail communaux · déplacements pendulaires · INSEE 2022</p>
   </div>
-  <nav class="tabs" role="tablist">
-    <button class="tab-btn active" data-tab="carte" role="tab" aria-selected="true">Carte</button>
-    <button class="tab-btn" data-tab="comprendre" role="tab" aria-selected="false">Comprendre</button>
-  </nav>
+  <button id="openComprendre" class="livebox" aria-haspopup="dialog">
+    <span class="fresh-dot"></span>
+    <div><strong>Comprendre la carte</strong><small>Méthode, source, licence</small></div>
+  </button>
 </header>
 
-<main id="tab-carte" class="tab-panel active">
-  <aside class="sidebar">
-    <div class="control-group">
-      <label for="commune-search">Commune</label>
-      <input list="commune-list" id="commune-search" placeholder="Rechercher une commune…" autocomplete="off">
-      <datalist id="commune-list"></datalist>
+<main class="workspace">
+  <aside class="sidebar" aria-label="Choix de la commune et des flux">
+    <div class="sidebar-intro">
+      <div class="section-number">01</div>
+      <div>
+        <span class="eyebrow">LECTURE CARTOGRAPHIQUE</span>
+        <h2>Explorer les flux</h2>
+        <p>Sélectionnez une commune du Val-d'Oise pour visualiser ses liaisons domicile-travail avec le reste du territoire.</p>
+      </div>
     </div>
 
-    <div class="control-group">
-      <label for="direction">Sens des flux</label>
-      <select id="direction">
-        <option value="both">Domicile et travail</option>
-        <option value="out">Résidents travaillant ailleurs</option>
-        <option value="in">Actifs venant y travailler</option>
-      </select>
+    <label class="search-box">
+      <span>Rechercher une commune</span>
+      <div><input id="searchInput" type="search" placeholder="Ex. Argenteuil" autocomplete="off"><button id="searchButton" aria-label="Rechercher">→</button></div>
+    </label>
+    <div id="searchResults" class="search-results" hidden></div>
+
+    <div class="quick-actions">
+      <button id="resetView">Recentrer</button>
+      <button id="openComprendre2">Comprendre la carte</button>
     </div>
 
-    <div class="control-group">
+    <div class="theme-heading"><span>SENS DES FLUX</span></div>
+    <div class="control-block">
+      <div class="direction-toggle">
+        <button data-dir="out" class="active"><i></i>Résidents sortants</button>
+        <button data-dir="in"><i></i>Actifs entrants</button>
+      </div>
+    </div>
+
+    <div class="control-block">
       <label for="threshold">Seuil minimum : <span id="threshold-val">10</span> actifs</label>
       <input type="range" id="threshold" min="1" max="200" value="10" step="1">
+      <div class="range-row"><span>1</span><span>200</span></div>
     </div>
 
-    <div id="stats" class="stats"></div>
+    <div class="stats" id="stats"></div>
 
-    <div class="legend">
-      <div class="legend-item"><span class="swatch out"></span> Sortant (habite ici, travaille ailleurs)</div>
-      <div class="legend-item"><span class="swatch in"></span> Entrant (travaille ici, habite ailleurs)</div>
-      <div class="legend-item hint">Épaisseur = nombre d'actifs concernés (estimation INSEE 2022)</div>
+    <button id="openComprendre3" class="sources-inline">Sources, millésimes et licences</button>
+    <div class="sidebar-footer">
+      <div class="fresh-dot"></div>
+      <div><strong>28 299 liaisons cartographiées</strong><small>INSEE RP2022 · Licence Ouverte</small></div>
     </div>
   </aside>
 
-  <div class="map-wrap">
-    <svg id="map"></svg>
-    <div id="tooltip" class="tooltip" hidden></div>
-    <div class="zoom-hint">Molette pour zoomer · glisser pour déplacer</div>
-  </div>
+  <section class="map-shell" aria-label="Carte interactive">
+    <div id="map"></div>
+    <div class="map-legend">
+      <strong>Lecture de la carte</strong>
+      <span><i class="out"></i>Sortant — habite ici, travaille ailleurs</span>
+      <span><i class="in"></i>Entrant — travaille ici, habite ailleurs</span>
+      <span>Épaisseur = nombre d'actifs (estimation INSEE 2022)</span>
+    </div>
+    <div class="map-note"><span class="pulse" style="width:8px;height:8px;border-radius:50%;background:#28a745"></span><span id="mapStatus">Chargement des données…</span></div>
+  </section>
 </main>
 
-<main id="tab-comprendre" class="tab-panel">
-  <article class="prose">
+<dialog id="comprendreDialog" class="dialog">
+  <button class="dialog-close" data-close="comprendreDialog" aria-label="Fermer">×</button>
+  <div class="dialog-header">
+    <span class="eyebrow">TRAÇABILITÉ</span>
     <h2>Comprendre la carte</h2>
-
+    <p>Ce que montre la carte, comment la lire, d'où viennent les données et leurs limites.</p>
+  </div>
+  <div class="dialog-body">
     <h3>Ce que montre cette carte</h3>
-    <p>Cette carte représente les <strong>flux domicile-travail</strong> des actifs occupés de 15 ans ou plus, à l'échelle communale, pour le département du <strong>Val d'Oise (95)</strong> et ses liaisons avec le reste de la France. Chaque courbe relie la commune de résidence à la commune de travail d'un ensemble d'actifs.</p>
-    <p>Le projet s'inspire directement de la carte allemande <a href="https://regio.toekom.st/" target="_blank" rel="noopener">regio.toekom.st</a>, qui visualise les mobilités professionnelles à l'aide de lignes courbes.</p>
+    <p>Cette carte représente les <strong>flux domicile-travail</strong> des actifs occupés de 15 ans ou plus, à l'échelle communale, pour le département du <strong>Val-d'Oise (95)</strong> et ses liaisons avec le reste de la France. Chaque courbe relie la commune de résidence à la commune de travail d'un ensemble d'actifs.</p>
+    <p>Le principe d'interaction s'inspire de la carte allemande <a href="https://regio.toekom.st/" target="_blank" rel="noopener">regio.toekom.st</a> : on choisit une commune, on lit ses flux.</p>
 
     <h3>Comment lire la carte</h3>
     <ul>
-      <li><strong>Sélectionnez une commune</strong> du Val d'Oise dans la barre latérale : la carte affiche tous ses flux domicile-travail.</li>
-      <li><strong>Couleur</strong> : orange pour les flux sortants (habitants de la commune travaillant ailleurs), bleu-vert pour les flux entrants (personnes venant y travailler depuis une autre commune).</li>
+      <li><strong>Sélectionnez une commune</strong> via la recherche : la carte affiche tous ses flux domicile-travail.</li>
+      <li><strong>Couleur</strong> : orange pour les flux sortants (habitants travaillant ailleurs), bleu pour les flux entrants (personnes venant y travailler).</li>
       <li><strong>Épaisseur et opacité</strong> des courbes : proportionnelles au nombre d'actifs concernés.</li>
-      <li><strong>Seuil minimum</strong> : un curseur permet de masquer les flux les plus faibles pour alléger la lecture de la carte.</li>
-      <li>La carte est zoomable (molette) et déplaçable (glisser), utile pour explorer les liaisons lointaines (Paris, Lyon, Marseille…).</li>
+      <li><strong>Seuil minimum</strong> : masque les flux les plus faibles pour alléger la lecture.</li>
+      <li>La carte est zoomable et déplaçable comme un fond IGN/OSM classique.</li>
     </ul>
 
     <h3>Source des données</h3>
-    <p>Les données proviennent de l'INSEE, base <em>« Mobilités professionnelles en 2022 : déplacements domicile — lieu de travail »</em>, issue du recensement de la population (RP2022), publiée sous <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/" target="_blank" rel="noopener">Licence Ouverte / Open Licence</a> par l'INSEE.</p>
-    <p>Page du jeu de données : <a href="https://www.insee.fr/fr/statistiques/8582949" target="_blank" rel="noopener">insee.fr/fr/statistiques/8582949</a></p>
+    <p>INSEE, base <em>« Mobilités professionnelles en 2022 : déplacements domicile — lieu de travail »</em> (RP2022), Licence Ouverte / Open Licence (Etalab). Page du jeu de données : <a href="https://www.insee.fr/fr/statistiques/8582949" target="_blank" rel="noopener">insee.fr/fr/statistiques/8582949</a>.</p>
 
-    <h3>Limites et précisions méthodologiques</h3>
+    <h3>Limites méthodologiques</h3>
     <ul>
-      <li>Les effectifs sont des <strong>estimations pondérées</strong> issues d'une enquête par sondage (recensement rénové), et non des comptages exhaustifs : ils peuvent comporter des décimales et une marge d'incertitude, en particulier sur les petits flux.</li>
-      <li>Paris, Lyon et Marseille sont publiés par arrondissement dans les données brutes ; ils ont été regroupés ici au niveau de la commune pour la lisibilité de la carte.</li>
-      <li>Les flux transfrontaliers vers la Belgique, la Suisse, l'Allemagne et le Luxembourg (environ 150 liaisons de faible volume) sont exclus de cette première version, faute de géocodage précis.</li>
-      <li>Seuls les flux d'au moins 1 actif estimé sont conservés dans le jeu de données ; le curseur de seuil permet d'affiner encore l'affichage.</li>
+      <li>Effectifs estimés par sondage (recensement rénové) : décimales et marge d'incertitude possibles, en particulier sur les petits flux.</li>
+      <li>Paris, Lyon et Marseille, publiés par arrondissement dans les données brutes, sont regroupés ici au niveau communal.</li>
+      <li>Les flux transfrontaliers (Belgique, Suisse, Allemagne, Luxembourg — environ 150 liaisons de faible volume) sont exclus de cette première version.</li>
     </ul>
 
-    <h3>Code source</h3>
-    <p>Ce projet est open source, disponible sur <a href="https://github.com/DDT95/val-doise-domicile-travail" target="_blank" rel="noopener">GitHub</a>.</p>
-  </article>
-</main>
+    <div class="source-cards">
+      <div class="source-card">
+        <h3>Base flux domicile-travail 2022</h3>
+        <p>INSEE — RP2022, commune de résidence × commune de travail, licence ouverte.</p>
+        <a href="https://www.insee.fr/fr/statistiques/8582949" target="_blank" rel="noopener">Voir la source ↗</a>
+      </div>
+      <div class="source-card">
+        <h3>Code source</h3>
+        <p>Projet open source, données et méthode de traitement disponibles sur GitHub.</p>
+        <a href="https://github.com/DDT95/val-doise-domicile-travail" target="_blank" rel="noopener">Voir le dépôt ↗</a>
+      </div>
+    </div>
+  </div>
+</dialog>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="js/app.js"></script>
 </body>
