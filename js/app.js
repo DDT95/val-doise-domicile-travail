@@ -79,8 +79,7 @@
     state.flows = flows;
     state.epcis = Object.values(epciProfiles);
     state.epcisByCode = new Map(state.epcis.map((epci) => [epci.code, epci]));
-    communeSelect.innerHTML = `<option value="">Sélectionner une commune…</option>${[...communes95].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((item) => `<option value="${item.code}">${item.name}</option>`).join("")}`;
-    populateEpciSelect();
+    prepareEpciColors();
 
     document.getElementById("mapStatus").textContent = `${flows.length.toLocaleString("fr-FR")} liaisons chargées`;
     updateOverlayFrame();
@@ -89,7 +88,6 @@
     const initialParams = new URLSearchParams(location.search);
     if (initialParams.get("type") === "epci" && state.epcisByCode.has(initialParams.get("id"))) {
       setMapScale("epci");
-      epciSelect.value = initialParams.get("id");
       selectEpci(initialParams.get("id"));
     } else if (initialParams.get("scale") === "epci") {
       setMapScale("epci");
@@ -102,31 +100,12 @@
   const searchInput = document.getElementById("searchInput");
   const searchButton = document.getElementById("searchButton");
   const searchResults = document.getElementById("searchResults");
-  const communeSearchField = document.getElementById("communeSearchField");
-  const communeSelect = document.getElementById("communeSelect");
-  const epciSearchField = document.getElementById("epciSearchField");
-  const epciSelect = document.getElementById("epciSelect");
-  const epciList = document.getElementById("epciList");
-  const mapScaleSelect = document.getElementById("mapScaleSelect");
+  const territorySearchLabel = document.getElementById("territorySearchLabel");
 
-  function populateEpciSelect() {
+  function prepareEpciColors() {
     const regular = state.epcis.filter((item) => !item.special).sort((a, b) => a.name.localeCompare(b.name, "fr"));
     const special = state.epcis.filter((item) => item.special).sort((a, b) => a.name.localeCompare(b.name, "fr"));
     [...regular, ...special].forEach((item, index) => state.epciColors.set(item.code, EPCI_COLORS[index % EPCI_COLORS.length]));
-    epciSelect.innerHTML = `<option value="">Sélectionner…</option><optgroup label="EPCI du Val-d’Oise">${regular.map((item) => `<option value="${item.code}">${item.name}</option>`).join("")}</optgroup><optgroup label="Communes particulières">${special.map((item) => `<option value="${item.code}">${item.name} · commune</option>`).join("")}</optgroup>`;
-    epciList.innerHTML = [...regular, ...special].map((item) => `<button type="button" class="epci-choice" data-epci-code="${item.code}" role="option" aria-selected="false" style="--epci-color:${state.epciColors.get(item.code)}"><i class="epci-switch" aria-hidden="true"></i><span><strong>${item.name}</strong><small>${item.special ? "Commune particulière · accès EPCI" : `${item.member_count || item.members.length} communes`}</small></span><em aria-hidden="true"></em></button>`).join("");
-    epciList.querySelectorAll(".epci-choice").forEach((button) => button.addEventListener("click", () => {
-      epciSelect.value = button.dataset.epciCode;
-      selectEpci(button.dataset.epciCode);
-    }));
-  }
-
-  function updateEpciChoices(code = "") {
-    epciList.querySelectorAll(".epci-choice").forEach((button) => {
-      const active = button.dataset.epciCode === code;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-    });
   }
 
   function styleTerritories(selectedCode = null) {
@@ -149,23 +128,18 @@
   function setMapScale(scale) {
     state.scale = scale;
     state.selected = null;
-    mapScaleSelect.value = scale;
     searchInput.value = "";
-    communeSelect.value = "";
-    epciSelect.value = "";
-    updateEpciChoices();
-    communeSearchField.hidden = scale !== "commune";
-    epciSearchField.hidden = scale !== "epci";
+    territorySearchLabel.textContent = scale === "epci" ? "Rechercher un EPCI" : "Rechercher une commune";
+    searchInput.placeholder = scale === "epci" ? "Ex. Cergy-Pontoise" : "Ex. Pontoise";
+    document.querySelectorAll("[data-map-scale]").forEach((button) => {
+      const active = button.dataset.mapScale === scale;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
     resetMapSelection();
   }
 
-  mapScaleSelect.addEventListener("change", () => setMapScale(mapScaleSelect.value));
-  epciSelect.addEventListener("change", () => {
-    if (epciSelect.value) selectEpci(epciSelect.value);
-  });
-  communeSelect.addEventListener("change", () => {
-    if (communeSelect.value) selectCommune(communeSelect.value);
-  });
+  document.querySelectorAll("[data-map-scale]").forEach((button) => button.addEventListener("click", () => setMapScale(button.dataset.mapScale)));
 
   function renderSearchResults(query) {
     const q = query.trim().toLowerCase();
@@ -174,8 +148,9 @@
       searchResults.innerHTML = "";
       return;
     }
-    const matches = state.communes
-      .filter((c) => c.name.toLowerCase().includes(q))
+    const collection = state.scale === "epci" ? state.epcis : state.communes;
+    const matches = collection
+      .filter((item) => item.name.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name, "fr"))
       .slice(0, 8);
     if (!matches.length) {
@@ -183,12 +158,13 @@
       return;
     }
     searchResults.innerHTML = matches
-      .map((c) => `<button type="button" data-code="${c.code}">${c.name}</button>`)
+      .map((item) => `<button type="button" data-code="${item.code}"><b>${item.name}</b><small>${state.scale === "epci" ? (item.special ? "Commune particulière" : "EPCI") : "Commune"}</small></button>`)
       .join("");
     searchResults.hidden = false;
     searchResults.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", () => {
-        selectCommune(btn.dataset.code);
+        if (state.scale === "epci") selectEpci(btn.dataset.code);
+        else selectCommune(btn.dataset.code);
         searchResults.hidden = true;
       });
     });
@@ -202,14 +178,18 @@
     }
   });
   searchButton.addEventListener("click", () => {
-    const match = state.communesByName.get(searchInput.value.trim().toLowerCase());
-    if (match) selectCommune(match.code);
+    const collection = state.scale === "epci" ? state.epcis : state.communes;
+    const q = searchInput.value.trim().toLowerCase();
+    const match = collection.find((item) => item.name.toLowerCase() === q) || collection.find((item) => item.name.toLowerCase().includes(q));
+    if (match) state.scale === "epci" ? selectEpci(match.code) : selectCommune(match.code);
   });
   searchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
-      const match = state.communesByName.get(searchInput.value.trim().toLowerCase());
+      const collection = state.scale === "epci" ? state.epcis : state.communes;
+      const q = searchInput.value.trim().toLowerCase();
+      const match = collection.find((item) => item.name.toLowerCase() === q) || collection.find((item) => item.name.toLowerCase().includes(q));
       if (match) {
-        selectCommune(match.code);
+        state.scale === "epci" ? selectEpci(match.code) : selectCommune(match.code);
         searchResults.hidden = true;
       }
     }
@@ -247,9 +227,6 @@
   function resetMapSelection() {
     state.selected = null;
     searchInput.value = "";
-    communeSelect.value = "";
-    epciSelect.value = "";
-    updateEpciChoices();
     searchResults.hidden = true;
     sidebarEl.classList.remove("open");
     mobileLayersBtn.setAttribute("aria-expanded", "false");
@@ -265,7 +242,7 @@
 
   // ---------- Comprendre dialog ----------
   const comprendreDialog = document.getElementById("comprendreDialog");
-  ["openComprendre", "openComprendre2", "openComprendre3"].forEach((id) => {
+  ["openComprendre3"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("click", () => comprendreDialog.showModal());
   });
@@ -276,6 +253,19 @@
     if (e.target === comprendreDialog) comprendreDialog.close();
   });
 
+  function openTerritoryData() {
+    if (!state.selected) {
+      searchInput.focus();
+      document.getElementById("mapStatus").textContent = `Choisissez d’abord ${state.scale === "epci" ? "un EPCI" : "une commune"}`;
+      return;
+    }
+    const url = state.scale === "epci"
+      ? `fiche.html?type=epci&id=${encodeURIComponent(state.selected)}`
+      : `fiche.html?type=commune&id=${encodeURIComponent(state.selected)}`;
+    window.location.href = url;
+  }
+  ["openData", "openDataTop"].forEach((id) => document.getElementById(id)?.addEventListener("click", openTerritoryData));
+
   // ---------- Selection ----------
   function selectFromMap(code) {
     if (state.scale === "commune") {
@@ -284,7 +274,6 @@
     }
     const epci = state.epcis.find((item) => item.members.includes(code));
     if (epci) {
-      epciSelect.value = epci.code;
       selectEpci(epci.code);
     }
   }
@@ -292,14 +281,9 @@
   function selectCommune(code) {
     state.scale = "commune";
     state.selected = code;
-    mapScaleSelect.value = "commune";
-    communeSearchField.hidden = false;
-    epciSearchField.hidden = true;
-    updateEpciChoices();
     const c = state.communesByCode.get(code);
     if (c) {
       searchInput.value = c.name;
-      communeSelect.value = code;
       map.setView([c.lat, c.lon], Math.max(map.getZoom(), 11), { animate: false });
       document.getElementById("mapStatus").textContent = `${c.name} · flux communaux affichés`;
     }
@@ -312,11 +296,7 @@
     if (!epci) return;
     state.scale = "epci";
     state.selected = code;
-    mapScaleSelect.value = "epci";
-    communeSearchField.hidden = true;
-    epciSearchField.hidden = false;
-    epciSelect.value = code;
-    updateEpciChoices(code);
+    searchInput.value = epci.name;
     const visibleLayers = [];
     communesLayer.eachLayer((layer) => {
       if (epci.members.includes(layer.feature.properties.code)) visibleLayers.push(layer);
