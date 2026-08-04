@@ -4,6 +4,10 @@ Carte interactive des flux domicile-travail dans le Val d'Oise (95), inspirée d
 
 **[Voir la carte](https://ddt95.github.io/val-doise-domicile-travail/)**
 
+## Préparer la future page Logement
+
+Le cadrage complet de la page **« Comment se loge-t-on dans le Val-d’Oise ? »** est disponible dans [`HANDOFF_NOUVELLE_PAGE_LOGEMENT.md`](HANDOFF_NOUVELLE_PAGE_LOGEMENT.md) : sources pérennes, indicateurs, architecture, règles UX, pipeline de données, dépôt GitHub et raccordement à l’Atlas.
+
 ## Données
 
 Sources INSEE RP2022, Licence Ouverte / Open Licence (Etalab) :
