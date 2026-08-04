@@ -1,36 +1,24 @@
-# Design QA — ordre du panneau et fiche directe
+# Design QA — datavisualisations des fiches territoriales
 
-- Source visual truth: `/var/folders/3h/px_6bwl96w50x8y34bkz_k_80000gn/T/TemporaryItems/NSIRD_screencaptureui_xHcAYF/Capture d’écran 2026-08-04 à 10.49.19.png`
-- Unwanted-state evidence: `/var/folders/3h/px_6bwl96w50x8y34bkz_k_80000gn/T/TemporaryItems/NSIRD_screencaptureui_Pm9hDr/Capture d’écran 2026-08-04 à 11.00.06.png`
-- Map implementation screenshot: `/tmp/carte-ordre-final.png`
-- Direct profile screenshot: `/tmp/fiche-sans-menu.png`
-- Viewport: 1280 × 720 CSS px, density 1
-- State: carte vide en mode Commune ; fiche Argenteuil chargée directement
+- Existing design system: fiche territoriale DDT 95, Marianne, palette bleu/cyan/orange/rose/vert.
+- Verification surface: in-app browser, `fiche.html?type=commune&id=95018` and `fiche.html?type=epci&id=200057859`.
+- State: Argenteuil and CC Vexin Centre loaded from the processed INSEE RP2022 profiles.
 
 **Findings**
 
 - No actionable P0/P1/P2 issue remains.
-- The map sidebar now follows the shared atlas order: title, search, actions, analysis selectors, thematic controls.
-- The territory profile no longer displays the “Choisir un territoire” menu; it opens directly on the URL-selected profile.
+- The profile section now uses a two-slice donut and a 100% segmented age chart.
+- Employment and living-condition sections use additional donuts only for defensible part-to-whole comparisons.
+- Dense categorical comparisons remain horizontal bars; flow rankings remain ordered lists.
+- Every chart keeps visible values and a text legend, so color is not the only carrier of information.
 
-**Required fidelity surfaces**
+**Interaction and data checks**
 
-- Typography: Marianne hierarchy and uppercase section labels preserved.
-- Spacing/layout: selector block is below search/actions; direct profile uses the full content width.
-- Colors/tokens: existing atlas navy, cyan, grey and orange tokens unchanged.
-- Assets: official logo and map tiles unchanged.
-- Copy/content: no new instruction or menu added.
-
-**Interaction checks**
-
-- Sidebar DOM order verified: intro → search → actions → Commune/EPCI → flow direction → threshold.
-- Direct profile URL `fiche.html?type=commune&id=95018` renders Argenteuil.
-- Territory menu computed display is `none`; profile workspace is one column.
-- Browser console: no errors.
-
-**Comparison history**
-
-- Earlier issue: Commune/EPCI was placed above search and the profile exposed an unwanted territory menu.
-- Fix: moved the selector block and hid the profile selector while preserving URL-driven commune/EPCI profiles and PDF export.
+- Argenteuil renders 5 donuts, 6 age segments and all 7 report sections.
+- CC Vexin Centre renders the same chart families from its aggregated EPCI profile.
+- Chart labels, percentages and accessible descriptions come from the existing processed datasets.
+- No new statistic or inferred value was introduced, except explicit complements to 100% for binary donut legends.
+- Existing PDF/export structure and section-level page-break protection are preserved.
+- JavaScript syntax, JSON source and patch whitespace checks passed.
 
 final result: passed

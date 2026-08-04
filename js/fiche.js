@@ -2,6 +2,7 @@
   "use strict";
 
   const fmt = (number) => Math.round(number).toLocaleString("fr-FR");
+  const chartColors = ["#000091", "#00a7b5", "#e07a2f", "#e85d8e", "#18753c", "#ffd66b"];
   const root = document.getElementById("profileRoot");
   const dialog = document.getElementById("exportDialog");
   const communeSelect = document.getElementById("communeSelect");
@@ -23,6 +24,22 @@
           `<div class="bar-row"><span title="${item.label}">${item.label}</span><div class="bar-track"><i style="--pct:${item.pct}%"></i></div><b>${item.pct.toLocaleString("fr-FR")}%</b></div>`,
       )
       .join("")}</article>`;
+  }
+
+  function donut(title, data, centerLabel, centerValue, tone = "") {
+    let cursor = 0;
+    const stops = data.map((item, index) => {
+      const start = cursor;
+      cursor += item.pct;
+      return `${chartColors[index % chartColors.length]} ${start}% ${cursor}%`;
+    }).join(",");
+    const description = data.map((item) => `${item.label} ${item.pct}%`).join(", ");
+    return `<article class="chart-card visual-card ${tone}"><h3>${title}</h3><div class="donut-layout"><div class="donut" style="--segments:${stops}" role="img" aria-label="${description}"><div><strong>${centerValue}</strong><span>${centerLabel}</span></div></div><div class="chart-legend">${data.map((item, index) => `<div><i style="--swatch:${chartColors[index % chartColors.length]}"></i><span>${item.label}</span><b>${item.pct.toLocaleString("fr-FR")}%</b></div>`).join("")}</div></div></article>`;
+  }
+
+  function segmented(title, data) {
+    const description = data.map((item) => `${item.label} ${item.pct}%`).join(", ");
+    return `<article class="chart-card visual-card wide-chart"><h3>${title}</h3><div class="segment-bar" role="img" aria-label="${description}">${data.map((item, index) => `<i style="--size:${item.pct}%;--swatch:${chartColors[index % chartColors.length]}" title="${item.label} : ${item.pct}%"></i>`).join("")}</div><div class="segment-legend">${data.map((item, index) => `<div><i style="--swatch:${chartColors[index % chartColors.length]}"></i><span>${item.label}</span><b>${item.pct.toLocaleString("fr-FR")}%</b></div>`).join("")}</div></article>`;
   }
 
   function ranks(title, data) {
@@ -60,10 +77,10 @@
       </section>
       <div class="report-body">
         ${section("01 · REPÈRES", `${territoryTitle} en quatre chiffres`, `<div class="kpi-grid"><div class="kpi"><small>Actifs résidents</small><strong>${fmt(profile.residents)}</strong><span>actifs de 15 ans ou plus ayant un emploi</span></div><div class="kpi"><small>Emplois dans ${territory}</small><strong>${fmt(profile.workers)}</strong><span>emplois occupés par des résidents de toute origine</span></div><div class="kpi"><small>Travaillent sur place</small><strong>${localPct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}%</strong><span>${fmt(profile.local)} actifs résident et travaillent dans ${territory}</span></div><div class="kpi"><small>Ménage avec étudiant</small><strong>${profile.student_household_pct.toLocaleString("fr-FR")}%</strong><span>au moins un élève, étudiant ou stagiaire de 14 ans ou plus</span></div></div>`)}
-        ${section("02 · PROFIL", "Sexe et générations", `<div class="charts-grid">${bars("Répartition par sexe", profile.sex)}${bars("Répartition par âge", profile.age, "orange")}</div>`, `Profil des actifs occupés résidant dans ${territory}.`)}
-        ${section("03 · EMPLOIS", "Professions et conditions d’emploi", `<div class="charts-grid">${bars("Groupes socioprofessionnels", profile.profession, "green")}${bars("Conditions d’emploi", profile.employment)}${bars("Temps de travail", profile.worktime, "orange")}${bars("Diplôme le plus élevé", profile.diploma)}</div>`)}
+        ${section("02 · PROFIL", "Sexe et générations", `<div class="charts-grid visual-grid">${donut("Répartition par sexe", profile.sex, "actifs", "100 %")}${segmented("La génération active", profile.age)}</div>`, `Profil des actifs occupés résidant dans ${territory}.`)}
+        ${section("03 · EMPLOIS", "Professions et conditions d’emploi", `<div class="charts-grid">${bars("Groupes socioprofessionnels", profile.profession, "green")}${donut("Conditions d’emploi", profile.employment, "emploi stable", `${profile.employment[0].pct.toLocaleString("fr-FR")}%`)}${donut("Temps de travail", profile.worktime, "temps complet", `${profile.worktime[0].pct.toLocaleString("fr-FR")}%`, "orange")}${bars("Diplôme le plus élevé", profile.diploma)}</div>`)}
         ${section("04 · DÉPLACEMENTS", "Comment va-t-on travailler ?", `<div class="charts-grid">${bars("Mode principal de transport", profile.transport, "orange")}${bars("Motorisation du ménage", profile.cars, "green")}</div>`)}
-        ${section("05 · CADRE DE VIE", "Dans quel type de logement ?", `<div class="charts-grid">${bars("Type de logement", profile.housing)}<article class="chart-card green"><h3>Présence d’élèves et étudiants</h3><div class="kpi"><small>Ménages concernés</small><strong>${profile.student_household_pct.toLocaleString("fr-FR")}%</strong><span>Part des actifs vivant dans un ménage comprenant au moins un élève, étudiant ou stagiaire âgé de 14 ans ou plus.</span></div></article></div>`)}
+        ${section("05 · CADRE DE VIE", "Dans quel type de logement ?", `<div class="charts-grid">${donut("Type de logement", profile.housing, "habitat dominant", profile.housing.slice().sort((a, b) => b.pct - a.pct)[0].label)}${donut("Présence d’élèves et étudiants", [{ label: "Ménage concerné", pct: profile.student_household_pct }, { label: "Autre ménage", pct: 100 - profile.student_household_pct }], "ménages concernés", `${profile.student_household_pct.toLocaleString("fr-FR")}%`, "green")}</div>`)}
         ${section("06 · POLARITÉS", "Principales destinations et origines", `<div class="rank-grid">${ranks("Où travaillent les habitants ?", profile.destinations)}${ranks(`D’où viennent ceux qui travaillent dans ${territory} ?`, profile.origins)}</div>`, "Effectifs estimés, classés par ordre décroissant.")}
         ${section("SOURCE · MÉTHODE", "Bien lire cette fiche", `<div class="method-note"><strong>Source :</strong> Insee, Recensement de la population 2022, fichier détail Mobilités professionnelles domicile-lieu de travail, géographie au 1er janvier 2024. Les résultats utilisent le poids individuel <strong>IPONDI</strong>. ${isEpci ? "Le périmètre EPCI est celui de l’API Découpage administratif ; les EPCI interdépartementaux sont analysés dans leur intégralité." : ""} Les faibles effectifs sont des ordres de grandeur. La statistique « ménage avec étudiant » ne signifie pas que l’actif est lui-même étudiant. Licence Ouverte / Etalab.</div>`)}
       </div>
