@@ -26,6 +26,7 @@
   }).addTo(map);
 
   let communesLayer, deptLayer;
+  const territoryTooltip = L.tooltip({ sticky: true, className: "commune-tip", direction: "top", offset: [0, -8] });
 
   const overlaySvg = d3.select(map.getPanes().overlayPane).append("svg").attr("class", "flow-overlay");
   const overlayG = overlaySvg.append("g").attr("class", "leaflet-zoom-hide");
@@ -69,9 +70,15 @@
       style: () => ({ color: "#8a9bb0", weight: 0.6, fillColor: "#000091", fillOpacity: 0.03 }),
       onEachFeature: (feature, layer) => {
         layer.on("click", () => selectFromMap(feature.properties.code));
-        layer.on("mouseover", () => highlightFromMap(feature.properties.code));
-        layer.on("mouseout", () => styleTerritories(state.selected));
-        layer.bindTooltip(() => territoryNameFromMap(feature.properties.code), { sticky: true, className: "commune-tip" });
+        layer.on("mouseover", (event) => {
+          highlightFromMap(feature.properties.code);
+          territoryTooltip.setContent(territoryNameFromMap(feature.properties.code)).setLatLng(event.latlng).openOn(map);
+        });
+        layer.on("mousemove", (event) => territoryTooltip.setLatLng(event.latlng));
+        layer.on("mouseout", () => {
+          map.closeTooltip(territoryTooltip);
+          styleTerritories(state.selected);
+        });
       },
     }).addTo(map);
 
@@ -125,7 +132,6 @@
       communesLayer.eachLayer((layer) => {
         if (layer.feature.properties.code === code) {
           layer.setStyle({ fillOpacity: 0.5, weight: 2, color: "#007f8b" });
-          layer.bringToFront();
         }
       });
       return;
@@ -137,7 +143,6 @@
     communesLayer.eachLayer((layer) => {
       if (members.has(layer.feature.properties.code)) {
         layer.setStyle({ fillColor: color, fillOpacity: 0.58, weight: 0.9, color, opacity: 0.75 });
-        layer.bringToFront();
       }
     });
   }
