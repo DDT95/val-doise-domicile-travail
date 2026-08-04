@@ -8,6 +8,7 @@
 
 - No actionable P0/P1/P2 issue remains.
 - Donut centre labels use a compact percentage and constrained text so long housing labels cannot overflow the ring.
+- Map focus outlines are suppressed; EPCI mode tooltips and whole-territory hover styling resolve at EPCI level instead of exposing commune hover feedback.
 - The opening section now distinguishes population, localised jobs and employed residents in six directly labelled KPI cards.
 - Population uses the official Insee municipal reference population for 2023, effective 1 January 2026, and is summed across complete EPCI membership.
 - The profile section now uses a two-slice donut and six directly labelled vertical age bars.

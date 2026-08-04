@@ -69,7 +69,9 @@
       style: () => ({ color: "#8a9bb0", weight: 0.6, fillColor: "#000091", fillOpacity: 0.03 }),
       onEachFeature: (feature, layer) => {
         layer.on("click", () => selectFromMap(feature.properties.code));
-        layer.bindTooltip(feature.properties.nom, { sticky: true, className: "commune-tip" });
+        layer.on("mouseover", () => highlightFromMap(feature.properties.code));
+        layer.on("mouseout", () => styleTerritories(state.selected));
+        layer.bindTooltip(() => territoryNameFromMap(feature.properties.code), { sticky: true, className: "commune-tip" });
       },
     }).addTo(map);
 
@@ -108,6 +110,38 @@
     [...regular, ...special].forEach((item, index) => state.epciColors.set(item.code, EPCI_COLORS[index % EPCI_COLORS.length]));
   }
 
+  function epciForCommune(code) {
+    return state.epcis.find((item) => item.members.includes(code));
+  }
+
+  function territoryNameFromMap(code) {
+    if (state.scale === "commune") return state.communesByCode.get(code)?.name || code;
+    return epciForCommune(code)?.name || "Territoire hors EPCI affiché";
+  }
+
+  function highlightFromMap(code) {
+    if (!communesLayer) return;
+    if (state.scale === "commune") {
+      communesLayer.eachLayer((layer) => {
+        if (layer.feature.properties.code === code) {
+          layer.setStyle({ fillOpacity: 0.5, weight: 2, color: "#007f8b" });
+          layer.bringToFront();
+        }
+      });
+      return;
+    }
+    const hoveredEpci = epciForCommune(code);
+    if (!hoveredEpci) return;
+    const color = state.epciColors.get(hoveredEpci.code) || "#009099";
+    const members = new Set(hoveredEpci.members);
+    communesLayer.eachLayer((layer) => {
+      if (members.has(layer.feature.properties.code)) {
+        layer.setStyle({ fillColor: color, fillOpacity: 0.58, weight: 0.9, color, opacity: 0.75 });
+        layer.bringToFront();
+      }
+    });
+  }
+
   function styleTerritories(selectedCode = null) {
     if (!communesLayer) return;
     communesLayer.eachLayer((layer) => {
@@ -118,10 +152,10 @@
         layer.bringToFront();
         return;
       }
-      const epci = state.epcis.find((item) => item.members.includes(communeCode));
+      const epci = epciForCommune(communeCode);
       const color = epci ? state.epciColors.get(epci.code) : "#8a9bb0";
       const selected = epci?.code === selectedCode;
-      layer.setStyle({ fillColor: color, fillOpacity: selected ? 0.6 : 0.32, weight: selected ? 2.4 : 1, color: selected ? color : "#ffffff", opacity: 1 });
+      layer.setStyle({ fillColor: color, fillOpacity: selected ? 0.52 : 0.3, weight: selected ? 0.9 : 0.55, color: selected ? color : "#ffffff", opacity: selected ? 0.72 : 0.85 });
     });
   }
 
@@ -272,7 +306,7 @@
       selectCommune(code);
       return;
     }
-    const epci = state.epcis.find((item) => item.members.includes(code));
+    const epci = epciForCommune(code);
     if (epci) {
       selectEpci(epci.code);
     }
