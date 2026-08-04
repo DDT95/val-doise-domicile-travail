@@ -91,10 +91,13 @@ body {
 }
 .profile-workspace {
   display: grid;
-  grid-template-columns: 286px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   max-width: 1580px;
   margin: 0 auto;
+}
+.territory-panel[hidden] {
+  display: none;
 }
 .territory-panel {
   position: sticky;
