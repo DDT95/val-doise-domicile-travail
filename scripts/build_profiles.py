@@ -1,6 +1,9 @@
 """Agrège le fichier détail INSEE RP2022 MOBPRO aux échelles commune et EPCI."""
 import json
+import csv
+import io
 import urllib.request
+import zipfile
 from pathlib import Path
 
 import pandas as pd
@@ -9,6 +12,7 @@ import pyarrow.parquet as pq
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 PROCESSED = ROOT / "data" / "processed"
+POPULATION_URL = "https://www.insee.fr/fr/statistiques/fichier/8680726/ensemble.zip"
 
 EPCI_NAMES = {
     "200035970": "CC Vexin Centre",
@@ -50,7 +54,16 @@ def epci_members(code):
         return [item["code"] for item in json.load(response)]
 
 
-def build_profile(code, name, members, df, labels, kind="commune", special=False):
+def population_reference():
+    """Population municipale de référence 2023, en vigueur au 1er janvier 2026."""
+    with urllib.request.urlopen(POPULATION_URL, timeout=60) as response:
+        archive = zipfile.ZipFile(io.BytesIO(response.read()))
+    with archive.open("donnees_communes.csv") as source:
+        rows = csv.DictReader(io.TextIOWrapper(source, encoding="utf-8"), delimiter=";")
+        return {row["COM"]: int(row["PMUN"]) for row in rows}
+
+
+def build_profile(code, name, members, df, labels, populations, kind="commune", special=False):
     member_set = set(members)
     residents = df[df.COMMUNE.isin(member_set)].copy()
     workers = df[df.DCLT.isin(member_set)].copy()
@@ -75,6 +88,8 @@ def build_profile(code, name, members, df, labels, kind="commune", special=False
         "special": special,
         "member_count": len(members),
         "members": members,
+        "population": sum(populations.get(member, 0) for member in members),
+        "population_year": 2023,
         "residents": round(total, 1),
         "workers": round(workers.IPONDI.sum(), 1),
         "local": round(residents.loc[residents.DCLT.isin(member_set), "IPONDI"].sum(), 1),
@@ -98,6 +113,7 @@ def main():
     labels = {var: dict(zip(part.COD_MOD, part.LIB_MOD)) for var, part in meta.groupby("COD_VAR")}
     commune_names = labels["COMMUNE"]
     commune_codes = sorted(code for code in commune_names if code.startswith("95"))
+    populations = population_reference()
     columns = ["COMMUNE", "DCLT", "AGEREVQ", "GS", "DIPL", "EMPL", "INEEM", "IPONDI", "SEXE", "TP", "TRANS", "TYPL", "VOIT"]
     df = pq.read_table(RAW / "RP2022_mobpro.parquet", columns=columns).to_pandas()
     for column in columns:
@@ -105,11 +121,11 @@ def main():
             df[column] = df[column].astype(str).str.replace(r"\.0$", "", regex=True)
 
     communes = {
-        code: build_profile(code, commune_names[code].rsplit(" (", 1)[0], [code], df, labels)
+        code: build_profile(code, commune_names[code].rsplit(" (", 1)[0], [code], df, labels, populations)
         for code in commune_codes
     }
     epcis = {
-        code: build_profile(code, name, epci_members(code), df, labels, kind="epci")
+        code: build_profile(code, name, epci_members(code), df, labels, populations, kind="epci")
         for code, name in EPCI_NAMES.items()
     }
     for code in ("95018", "95063"):

@@ -7,6 +7,8 @@
 **Findings**
 
 - No actionable P0/P1/P2 issue remains.
+- The opening section now distinguishes population, localised jobs and employed residents in six directly labelled KPI cards.
+- Population uses the official Insee municipal reference population for 2023, effective 1 January 2026, and is summed across complete EPCI membership.
 - The profile section now uses a two-slice donut and six directly labelled vertical age bars.
 - Employment and living-condition sections use additional donuts only for defensible part-to-whole comparisons.
 - Dense categorical comparisons remain horizontal bars; flow rankings remain ordered lists.
@@ -15,6 +17,7 @@
 **Interaction and data checks**
 
 - Argenteuil renders 5 donuts, 6 directly labelled age bars and all 7 report sections.
+- Argenteuil displays 106,130 inhabitants, 29,960 localised jobs and 44,560 employed residents without horizontal overflow.
 - CC Vexin Centre renders the same chart families from its aggregated EPCI profile.
 - Chart labels, percentages and accessible descriptions come from the existing processed datasets.
 - No new statistic or inferred value was introduced, except explicit complements to 100% for binary donut legends.

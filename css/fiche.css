@@ -294,6 +294,12 @@ body {
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
+.kpi-grid-six {
+  grid-template-columns: repeat(3, 1fr);
+}
+.population-kpi {
+  background: #eef7f8;
+}
 .kpi {
   padding: 18px;
   border-radius: 16px;

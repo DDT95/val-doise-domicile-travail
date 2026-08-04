@@ -120,6 +120,7 @@ Carte interactive des flux domicile-travail (navettes pendulaires) du Val-d'Oise
 
 ### Données
 - Source : **INSEE**, base *« Mobilités professionnelles en 2022 : déplacements domicile — lieu de travail »* (RP2022, la plus récente), page : https://www.insee.fr/fr/statistiques/8582949
+- Population des fiches : **INSEE, population municipale de référence 2023**, en vigueur au 1er janvier 2026, fichier d'ensemble `https://www.insee.fr/fr/statistiques/fichier/8680726/ensemble.zip`. Le script `build_profiles.py` la télécharge et l'agrège sur les périmètres EPCI complets.
 - Fichier utilisé : `base-flux-mobilite-domicile-lieu-travail-2022_csv.zip` — déjà agrégé par paire (commune résidence × commune travail × effectif estimé), pas besoin de repartir de la microdonnée pondérée (`RP2022_mobpro`, plus complexe).
 - Licence Ouverte / Open Licence (Etalab), réutilisation libre avec attribution.
 - Colonnes du CSV source : `CODGEO;LIBGEO;DCLT;L_DCLT;NBFLUX_C22_ACTOCC15P` (commune résidence, nom, commune travail, nom, effectif estimé décimal).
