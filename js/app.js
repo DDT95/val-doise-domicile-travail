@@ -493,6 +493,9 @@
     const format = (value) => Math.round(value).toLocaleString("fr-FR");
     const isEpci = state.scale === "epci" && !c.special;
     const territoryType = isEpci ? "EPCI" : "Commune";
+    const exchangeProfile = outShare >= inShare
+      ? (isEpci ? "résidentiel" : "résidentielle")
+      : (isEpci ? "attractif" : "attractive");
     const profileUrl = state.scale === "epci"
       ? `fiche.html?type=epci&id=${encodeURIComponent(code)}`
       : `fiche.html?type=commune&id=${encodeURIComponent(code)}`;
@@ -517,7 +520,7 @@
       </div>
       <section class="flow-profile" aria-label="Profil des flux">
         <div class="flow-donut" style="--out-share:${outShare * 3.6}deg"><div><strong>${total ? Math.max(outShare, inShare) : 0}%</strong><small>${outShare >= inShare ? "sortants" : "entrants"}</small></div></div>
-        <div class="profile-copy"><span>Profil des échanges</span><strong>${territoryType} plutôt ${outShare >= inShare ? "résidentiel" : "attractif"}</strong><p>${outShare}% sortants · ${inShare}% entrants</p></div>
+        <div class="profile-copy"><span>Profil des échanges</span><strong>${territoryType} plutôt ${exchangeProfile}</strong><p>${outShare}% sortants · ${inShare}% entrants</p></div>
       </section>
       <section class="balance-card ${balance >= 0 ? "positive" : "negative"}">
         <div><span>Balance des flux</span><strong>${balance >= 0 ? "+" : "−"}${format(Math.abs(balance))}</strong></div>
