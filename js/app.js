@@ -14,6 +14,7 @@
     showOut: true,
     showIn: true,
     threshold: 10,
+    deptSynthese: null,
   };
 
   // ---------- Map ----------
@@ -89,6 +90,7 @@
     state.epcis = Object.values(epciProfiles);
     state.epcisByCode = new Map(state.epcis.map((epci) => [epci.code, epci]));
     prepareEpciColors();
+    state.deptSynthese = computeDepartementSynthese(flows, communes95);
 
     document.getElementById("mapStatus").textContent = `${flows.length.toLocaleString("fr-FR")} liaisons chargées`;
     updateOverlayFrame();
@@ -292,18 +294,96 @@
     if (e.target === comprendreDialog) comprendreDialog.close();
   });
 
-  function openTerritoryData() {
-    if (!state.selected) {
-      searchInput.focus();
-      document.getElementById("mapStatus").textContent = `Choisissez d’abord ${state.scale === "epci" ? "un EPCI" : "une commune"}`;
-      return;
-    }
-    const url = state.scale === "epci"
-      ? `fiche.html?type=epci&id=${encodeURIComponent(state.selected)}`
-      : `fiche.html?type=commune&id=${encodeURIComponent(state.selected)}`;
-    window.location.href = url;
+  // ---------- Synthèse départementale ----------
+  function computeDepartementSynthese(flows, communes95) {
+    let intra = 0, sortants = 0, entrants = 0;
+    const externalDest = new Map();
+    const externalOrig = new Map();
+    const intraPairs = [];
+    const communeOut = new Map();
+    const communeIn = new Map();
+
+    flows.forEach((f) => {
+      if (f.o95 && f.d95) {
+        intra += f.v;
+        if (f.o !== f.d) intraPairs.push(f);
+      } else if (f.o95 && !f.d95) {
+        sortants += f.v;
+        externalDest.set(f.dname, (externalDest.get(f.dname) || 0) + f.v);
+      } else if (!f.o95 && f.d95) {
+        entrants += f.v;
+        externalOrig.set(f.oname, (externalOrig.get(f.oname) || 0) + f.v);
+      }
+      if (f.o95) communeOut.set(f.o, (communeOut.get(f.o) || 0) + f.v);
+      if (f.d95) communeIn.set(f.d, (communeIn.get(f.d) || 0) + f.v);
+    });
+
+    const balances = communes95.map((c) => {
+      const out = communeOut.get(c.code) || 0;
+      const inn = communeIn.get(c.code) || 0;
+      return { name: c.name, out, inn, balance: inn - out };
+    });
+    const topResidentiel = [...balances].sort((a, b) => a.balance - b.balance).slice(0, 6);
+    const topEmploi = [...balances].sort((a, b) => b.balance - a.balance).slice(0, 6);
+    const topIntra = [...intraPairs].sort((a, b) => b.v - a.v).slice(0, 6);
+    const topDest = [...externalDest.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, v]) => ({ name, v }));
+    const topOrig = [...externalOrig.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, v]) => ({ name, v }));
+
+    const selfContainment = intra + sortants ? Math.round((intra / (intra + sortants)) * 100) : 0;
+
+    return { intra, sortants, entrants, selfContainment, balance: entrants - sortants, topResidentiel, topEmploi, topIntra, topDest, topOrig };
   }
-  ["openData", "openDataTop"].forEach((id) => document.getElementById(id)?.addEventListener("click", openTerritoryData));
+
+  function renderDepartementDialog() {
+    const s = state.deptSynthese;
+    const content = document.getElementById("departementContent");
+    if (!s || !content) return;
+    const format = (v) => Math.round(v).toLocaleString("fr-FR");
+    const rankRows = (arr, key, valueKey = "v") =>
+      arr.map((r, i) => `<div class="trajectory-row">
+        <span class="rank-index">${String(i + 1).padStart(2, "0")}</span>
+        <div class="rank-copy"><b>${r[key]}</b></div>
+        <span>${format(r[valueKey])}</span>
+      </div>`).join("");
+    const balanceRows = (arr) =>
+      arr.map((r, i) => `<div class="trajectory-row">
+        <span class="rank-index">${String(i + 1).padStart(2, "0")}</span>
+        <div class="rank-copy"><b>${r.name}</b></div>
+        <span>${r.balance >= 0 ? "+" : "−"}${format(Math.abs(r.balance))}</span>
+      </div>`).join("");
+
+    content.innerHTML = `
+      <div class="dashboard-kpis">
+        <article><small>FLUX INTERNES AU 95</small><strong>${format(s.intra)}</strong><span>actifs résidant et travaillant dans le département</span></article>
+        <article><small>RÉSIDENTS PARTANT AILLEURS</small><strong>${format(s.sortants)}</strong><span>actifs du 95 travaillant hors département</span></article>
+        <article><small>ACTIFS ENTRANTS</small><strong>${format(s.entrants)}</strong><span>venant travailler dans le 95 depuis l'extérieur</span></article>
+        <article><small>AUTOCONFINEMENT RÉSIDENTIEL</small><strong>${s.selfContainment}%</strong><span>des résidents actifs travaillent dans le Val-d'Oise</span></article>
+      </div>
+      <section class="balance-card ${s.balance >= 0 ? "positive" : "negative"}" style="margin-top:20px">
+        <div><span>Balance départementale domicile-travail</span><strong>${s.balance >= 0 ? "+" : "−"}${format(Math.abs(s.balance))}</strong></div>
+        <p>${s.balance >= 0 ? "Le Val-d'Oise attire net plus d'actifs qu'il n'en laisse partir travailler ailleurs." : "Le Val-d'Oise est net exportateur de main-d'œuvre vers le reste de l'Île-de-France."}</p>
+      </section>
+      <div class="dashboard-grid" style="margin-top:20px">
+        <article class="chart-card"><h3>Communes les plus résidentielles</h3><p>Solde domicile-travail le plus négatif (plus de résidents actifs que d'emplois occupés sur place).</p>${balanceRows(s.topResidentiel)}</article>
+        <article class="chart-card"><h3>Communes les plus pourvoyeuses d'emploi</h3><p>Solde domicile-travail le plus positif.</p>${balanceRows(s.topEmploi)}</article>
+        <article class="chart-card"><h3>Plus fortes liaisons intercommunales (95 ↔ 95)</h3><p>Hors résidence = travail dans la même commune.</p>${s.topIntra.map((r, i) => `<div class="trajectory-row"><span class="rank-index">${String(i + 1).padStart(2, "0")}</span><div class="rank-copy"><b>${r.oname} → ${r.dname}</b></div><span>${format(r.v)}</span></div>`).join("")}</article>
+        <article class="chart-card"><h3>Principales destinations hors Val-d'Oise</h3><p>Communes de travail des résidents partant ailleurs.</p>${rankRows(s.topDest, "name")}</article>
+        <article class="chart-card"><h3>Principales origines hors Val-d'Oise</h3><p>Communes de résidence des actifs entrants.</p>${rankRows(s.topOrig, "name")}</article>
+        <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Une synthèse à seuil nul</h3><p>Ces chiffres agrègent l'intégralité des flux domicile-travail du Val-d'Oise (RP2022, sans seuil minimum), contrairement à la carte qui applique le seuil et le sens choisis dans la barre latérale.</p></article>
+      </div>
+    `;
+  }
+
+  function openDepartementDialog() {
+    renderDepartementDialog();
+    document.getElementById("departementDialog").showModal();
+  }
+  ["openData", "openDataTop"].forEach((id) => document.getElementById(id)?.addEventListener("click", openDepartementDialog));
+  const departementDialog = document.getElementById("departementDialog");
+  if (departementDialog) {
+    departementDialog.querySelectorAll("[data-close]").forEach((btn) => btn.addEventListener("click", () => departementDialog.close()));
+    departementDialog.addEventListener("click", (e) => { if (e.target === departementDialog) departementDialog.close(); });
+  }
 
   // ---------- Selection ----------
   function selectFromMap(code) {
