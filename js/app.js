@@ -334,23 +334,82 @@
     return { intra, sortants, entrants, selfContainment, balance: entrants - sortants, topResidentiel, topEmploi, topIntra, topDest, topOrig };
   }
 
+  const DEPT_CHART_COLORS = ["#00a7b5", "#b8752a", "#000091", "#e85d8e", "#18753c", "#ffd66b"];
+
+  function deptDonut(title, data, centerValue, centerLabel) {
+    let cursor = 0;
+    const stops = data.map((item, index) => {
+      const start = cursor;
+      cursor += item.pct;
+      return `${item.color || DEPT_CHART_COLORS[index % DEPT_CHART_COLORS.length]} ${start}% ${cursor}%`;
+    }).join(",");
+    const legend = data.map((item, index) => `<div><i style="--swatch:${item.color || DEPT_CHART_COLORS[index % DEPT_CHART_COLORS.length]}"></i><span>${item.label}</span><b>${item.pct}%</b></div>`).join("");
+    return `<article class="chart-card visual-card"><h3>${title}</h3><div class="donut-layout"><div class="donut" style="--segments:${stops}"><div><strong>${centerValue}</strong><span>${centerLabel}</span></div></div><div class="chart-legend">${legend}</div></div></article>`;
+  }
+
+  function deptBars(title, description, data, tone = "") {
+    const max = Math.max(...data.map((d) => Math.abs(d.value)), 1);
+    const rows = data.map((d) => `<div class="bar-row"><span title="${d.label}">${d.label}</span><div class="bar-track"><i style="--pct:${Math.max(6, (Math.abs(d.value) / max) * 100)}%"></i></div><b>${d.display}</b></div>`).join("");
+    return `<article class="chart-card ${tone}"><h3>${title}</h3><p>${description}</p>${rows}</article>`;
+  }
+
   function renderDepartementDialog() {
     const s = state.deptSynthese;
     const content = document.getElementById("departementContent");
     if (!s || !content) return;
     const format = (v) => Math.round(v).toLocaleString("fr-FR");
-    const rankRows = (arr, key, valueKey = "v") =>
-      arr.map((r, i) => `<div class="trajectory-row">
-        <span class="rank-index">${String(i + 1).padStart(2, "0")}</span>
-        <div class="rank-copy"><b>${r[key]}</b></div>
-        <span>${format(r[valueKey])}</span>
-      </div>`).join("");
-    const balanceRows = (arr) =>
-      arr.map((r, i) => `<div class="trajectory-row">
-        <span class="rank-index">${String(i + 1).padStart(2, "0")}</span>
-        <div class="rank-copy"><b>${r.name}</b></div>
-        <span>${r.balance >= 0 ? "+" : "−"}${format(Math.abs(r.balance))}</span>
-      </div>`).join("");
+    const totalFlux = s.intra + s.sortants + s.entrants;
+    const pct = (v) => (totalFlux ? Math.round((v / totalFlux) * 100) : 0);
+
+    const repartitionDonut = deptDonut(
+      "Répartition des flux domicile-travail",
+      [
+        { label: "Internes au 95", pct: pct(s.intra), color: "#00a7b5" },
+        { label: "Sortants (résidents)", pct: pct(s.sortants), color: "#b8752a" },
+        { label: "Entrants (actifs)", pct: pct(s.entrants), color: "#000091" },
+      ],
+      `${s.selfContainment}%`,
+      "autoconfinement"
+    );
+
+    const balanceDonut = deptDonut(
+      "Balance sortants / entrants",
+      [
+        { label: "Sortants", pct: totalFlux ? Math.round((s.sortants / (s.sortants + s.entrants)) * 100) : 0, color: "#b8752a" },
+        { label: "Entrants", pct: totalFlux ? Math.round((s.entrants / (s.sortants + s.entrants)) * 100) : 0, color: "#000091" },
+      ],
+      `${s.balance >= 0 ? "+" : "−"}${format(Math.abs(s.balance))}`,
+      s.balance >= 0 ? "solde net entrant" : "solde net sortant"
+    );
+
+    const residentiel = deptBars(
+      "Communes les plus résidentielles",
+      "Solde domicile-travail le plus négatif (plus de résidents actifs que d'emplois occupés sur place).",
+      s.topResidentiel.map((r) => ({ label: r.name, value: r.balance, display: `−${format(Math.abs(r.balance))}` })),
+      "orange"
+    );
+    const emploi = deptBars(
+      "Communes les plus pourvoyeuses d'emploi",
+      "Solde domicile-travail le plus positif.",
+      s.topEmploi.map((r) => ({ label: r.name, value: r.balance, display: `+${format(r.balance)}` })),
+      "green"
+    );
+    const intraLiaisons = deptBars(
+      "Plus fortes liaisons intercommunales (95 ↔ 95)",
+      "Hors résidence = travail dans la même commune.",
+      s.topIntra.map((r) => ({ label: `${r.oname} → ${r.dname}`, value: r.v, display: format(r.v) }))
+    );
+    const destExt = deptBars(
+      "Principales destinations hors Val-d'Oise",
+      "Communes de travail des résidents partant ailleurs.",
+      s.topDest.map((r) => ({ label: r.name, value: r.v, display: format(r.v) })),
+      "orange"
+    );
+    const origExt = deptBars(
+      "Principales origines hors Val-d'Oise",
+      "Communes de résidence des actifs entrants.",
+      s.topOrig.map((r) => ({ label: r.name, value: r.v, display: format(r.v) }))
+    );
 
     content.innerHTML = `
       <div class="dashboard-kpis">
@@ -359,17 +418,15 @@
         <article><small>ACTIFS ENTRANTS</small><strong>${format(s.entrants)}</strong><span>venant travailler dans le 95 depuis l'extérieur</span></article>
         <article><small>AUTOCONFINEMENT RÉSIDENTIEL</small><strong>${s.selfContainment}%</strong><span>des résidents actifs travaillent dans le Val-d'Oise</span></article>
       </div>
-      <section class="balance-card ${s.balance >= 0 ? "positive" : "negative"}" style="margin-top:20px">
-        <div><span>Balance départementale domicile-travail</span><strong>${s.balance >= 0 ? "+" : "−"}${format(Math.abs(s.balance))}</strong></div>
-        <p>${s.balance >= 0 ? "Le Val-d'Oise attire net plus d'actifs qu'il n'en laisse partir travailler ailleurs." : "Le Val-d'Oise est net exportateur de main-d'œuvre vers le reste de l'Île-de-France."}</p>
-      </section>
-      <div class="dashboard-grid" style="margin-top:20px">
-        <article class="chart-card"><h3>Communes les plus résidentielles</h3><p>Solde domicile-travail le plus négatif (plus de résidents actifs que d'emplois occupés sur place).</p>${balanceRows(s.topResidentiel)}</article>
-        <article class="chart-card"><h3>Communes les plus pourvoyeuses d'emploi</h3><p>Solde domicile-travail le plus positif.</p>${balanceRows(s.topEmploi)}</article>
-        <article class="chart-card"><h3>Plus fortes liaisons intercommunales (95 ↔ 95)</h3><p>Hors résidence = travail dans la même commune.</p>${s.topIntra.map((r, i) => `<div class="trajectory-row"><span class="rank-index">${String(i + 1).padStart(2, "0")}</span><div class="rank-copy"><b>${r.oname} → ${r.dname}</b></div><span>${format(r.v)}</span></div>`).join("")}</article>
-        <article class="chart-card"><h3>Principales destinations hors Val-d'Oise</h3><p>Communes de travail des résidents partant ailleurs.</p>${rankRows(s.topDest, "name")}</article>
-        <article class="chart-card"><h3>Principales origines hors Val-d'Oise</h3><p>Communes de résidence des actifs entrants.</p>${rankRows(s.topOrig, "name")}</article>
+      <div class="dashboard-grid" style="margin-top:16px">
+        ${repartitionDonut}
+        ${balanceDonut}
         <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Une synthèse à seuil nul</h3><p>Ces chiffres agrègent l'intégralité des flux domicile-travail du Val-d'Oise (RP2022, sans seuil minimum), contrairement à la carte qui applique le seuil et le sens choisis dans la barre latérale.</p></article>
+        ${residentiel}
+        ${emploi}
+        ${intraLiaisons}
+        ${destExt}
+        ${origExt}
       </div>
     `;
   }

@@ -137,6 +137,27 @@ input[type="range"]{width:100%;accent-color:var(--blue)}
 .dashboard-note h3{margin:10px 0 8px;color:var(--blue);font-size:16px}
 .dashboard-note p{font-size:11px;line-height:1.55;color:#526274}
 
+.dashboard-grid .chart-card.span-2{grid-column:span 2}
+.dashboard-grid .chart-card.visual-card{display:grid}
+.dashboard-grid .donut-layout{display:grid;grid-template-columns:132px minmax(0,1fr);gap:18px;align-items:center;min-height:132px}
+.dashboard-grid .donut{width:132px;aspect-ratio:1;display:grid;place-items:center;border-radius:50%;background:conic-gradient(var(--segments));box-shadow:inset 0 0 0 1px rgba(7,0,71,.06)}
+.dashboard-grid .donut>div{width:88px;aspect-ratio:1;display:grid;place-content:center;padding:8px;border-radius:50%;background:#fff;text-align:center;box-shadow:0 7px 22px rgba(7,0,71,.1)}
+.dashboard-grid .donut strong,.dashboard-grid .donut span{display:block}
+.dashboard-grid .donut strong{color:var(--navy);font-size:17px;line-height:1}
+.dashboard-grid .donut span{margin-top:5px;color:var(--muted);font-size:8px;line-height:1.2}
+.dashboard-grid .chart-legend{display:grid;gap:8px}
+.dashboard-grid .chart-legend>div{display:grid;grid-template-columns:9px minmax(0,1fr) auto;gap:8px;align-items:center}
+.dashboard-grid .chart-legend i{width:9px;height:9px;border-radius:3px;background:var(--swatch)}
+.dashboard-grid .chart-legend span{color:#465367;font-size:10px;line-height:1.25}
+.dashboard-grid .chart-legend b{color:var(--navy);font-size:11px}
+.dashboard-grid .bar-row{display:grid;grid-template-columns:minmax(90px,1fr) 2.2fr 56px;gap:9px;align-items:center;margin:9px 0}
+.dashboard-grid .bar-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#465367;font-size:10px}
+.dashboard-grid .bar-track{height:9px;border-radius:99px;background:#e7edf1;overflow:hidden}
+.dashboard-grid .bar-track i{display:block;height:100%;width:var(--pct);border-radius:inherit;background:linear-gradient(90deg,var(--cyan),var(--blue))}
+.dashboard-grid .chart-card.orange .bar-track i{background:linear-gradient(90deg,#ffd66b,var(--orange))}
+.dashboard-grid .chart-card.green .bar-track i{background:linear-gradient(90deg,#75d7a2,#18753c)}
+.dashboard-grid .bar-row b{text-align:right;color:var(--navy);font-size:11px}
+
 @media(max-width:980px){
   .dashboard-kpis{grid-template-columns:1fr 1fr}
   .dashboard-grid{grid-template-columns:1fr 1fr}
