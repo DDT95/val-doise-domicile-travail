@@ -9,6 +9,7 @@
     epcisByCode: new Map(),
     epciColors: new Map(),
     flows: [],
+    visibleRows: [],
     selected: null,
     scale: "commune",
     showOut: true,
@@ -267,6 +268,7 @@
   // ---------- Reset view ----------
   function resetMapSelection() {
     state.selected = null;
+    state.visibleRows = [];
     searchInput.value = "";
     searchResults.hidden = true;
     sidebarEl.classList.remove("open");
@@ -533,6 +535,7 @@
 
   function render() {
     if (!state.selected) {
+      state.visibleRows = [];
       gArcs.selectAll("path").remove();
       gPoints.selectAll("circle").remove();
       return;
@@ -549,6 +552,7 @@
       if (isIn && !state.showIn) return false;
       return true;
     });
+    state.visibleRows = rows;
 
     styleTerritories(code);
 
@@ -679,5 +683,65 @@
 
   document.getElementById("closeDetail").addEventListener("click", () => {
     document.getElementById("detailPanel").classList.remove("open");
+  });
+
+  // ---------- Impression A3 ----------
+  // Les flux peuvent pointer hors Val-d'Oise (Paris, La Défense...) : contrairement à une
+  // simple choroplèthe, l'emprise à imprimer ne peut pas être fixée sur le contour du
+  // département. print.js la recalcule à partir du territoire sélectionné et de chaque
+  // extrémité de flux réellement affichée (voir app.rows()).
+  function printTerritories() {
+    if (!communesLayer) return { type: "FeatureCollection", features: [] };
+    const code = state.selected;
+    const epci = state.scale === "epci" && code ? state.epcisByCode.get(code) : null;
+    const coreCodes = new Set(state.scale === "epci" ? (epci ? epci.members : []) : (code ? [code] : []));
+    const features = [];
+    communesLayer.eachLayer((layer) => {
+      if (!layer.feature) return;
+      const feature = layer.toGeoJSON();
+      const communeCode = layer.feature.properties.code;
+      feature.properties = { ...feature.properties, _printCore: coreCodes.has(communeCode), _printStyle: {
+        color: layer.options.color,
+        weight: layer.options.weight,
+        opacity: layer.options.opacity,
+        fillColor: layer.options.fillColor,
+        fillOpacity: layer.options.fillOpacity,
+      } };
+      features.push(feature);
+    });
+    return { type: "FeatureCollection", features };
+  }
+
+  function printMeta() {
+    const code = state.selected;
+    if (!code) return null;
+    const c = state.scale === "epci" ? state.epcisByCode.get(code) : state.communesByCode.get(code);
+    if (!c) return null;
+    const isEpci = state.scale === "epci" && !c.special;
+    return {
+      name: c.name,
+      territoryType: isEpci ? "EPCI" : "Commune",
+      showOut: state.showOut,
+      showIn: state.showIn,
+      threshold: state.threshold,
+    };
+  }
+
+  window.mobiliteApp = {
+    state,
+    map,
+    territories: printTerritories,
+    department: () => deptLayer?.toGeoJSON(),
+    rows: () => state.visibleRows || [],
+    meta: printMeta,
+  };
+  document.getElementById("printMap")?.addEventListener("click", () => {
+    if (!state.selected) {
+      document.getElementById("mapStatus").textContent = `Choisissez d’abord ${state.scale === "epci" ? "un EPCI" : "une commune"} avant d’imprimer`;
+      searchInput.focus();
+      return;
+    }
+    const preview = new URLSearchParams(location.search).has("printPreview");
+    window.open(`print.html${preview ? "?preview=1" : ""}`, "_blank");
   });
 })();
