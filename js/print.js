@@ -164,7 +164,12 @@
     const { jsPDF } = window.jspdf; const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
     pdf.addImage(canvas.toDataURL("image/jpeg", .92), "JPEG", 0, 0, 420, 297, undefined, "FAST");
     window.__debugInfo = { svgBefore, svgAfter, mapPaneTransform: getComputedStyle(document.querySelector(".leaflet-map-pane")).transform };
-    if (new URLSearchParams(location.search).get("debugHold") === "1") { statusEl.innerHTML = "DEBUG HOLD — voir window.__debugInfo"; return; }
+    if (new URLSearchParams(location.search).get("debugHold") === "1") {
+      statusEl.innerHTML = "DEBUG HOLD — voir window.__debugInfo";
+      canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:contain;z-index:9999;background:#fff";
+      document.body.appendChild(canvas);
+      return;
+    }
     window.location.replace(URL.createObjectURL(pdf.output("blob")));
   }
   map.whenReady(() => setTimeout(() => {
