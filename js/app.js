@@ -681,9 +681,7 @@
     document.getElementById("mapStatus").textContent = `Val-d’Oise · sélectionnez ${state.scale === "epci" ? "un EPCI" : "une commune"} pour révéler ses flux`;
   }
 
-  document.getElementById("closeDetail").addEventListener("click", () => {
-    document.getElementById("detailPanel").classList.remove("open");
-  });
+  document.getElementById("closeDetail").addEventListener("click", resetMapSelection);
 
   // ---------- Impression A3 ----------
   // Les flux peuvent pointer hors Val-d'Oise (Paris, La Défense...) : contrairement à une

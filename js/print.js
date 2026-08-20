@@ -78,9 +78,6 @@
     bounds.extend([r.olat, r.olon]);
     bounds.extend([r.dlat, r.dlon]);
   });
-  map.invalidateSize();
-  if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50] });
-  else map.setView(liveMap.getCenter(), liveMap.getZoom());
 
   // Arcs (surcouche SVG D3 reprenant le rendu de la carte principale)
   const overlaySvg = d3.select(map.getPanes().overlayPane).append("svg").attr("class", "flow-overlay");
@@ -161,10 +158,23 @@
   }
   map.whenReady(() => setTimeout(() => {
     map.invalidateSize();
-    if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50] });
-    renderArcs();
-    renderScaleBar();
-    if (previewMode) { statusEl.classList.add("done"); return; }
-    setTimeout(() => buildPdf().catch((error) => { console.error(error); statusEl.innerHTML = "La génération du PDF a échoué.<small>Ferme cette page et réessaie depuis la carte.</small>"; }), 900);
+    // Les positions des arcs (surcouche D3, projetées via latLngToLayerPoint) ne doivent être
+    // calculées qu'une fois la vue définitivement stabilisée : Leaflet ne remet à jour son
+    // origine de pixels qu'à "moveend". Un seul fitBounds au total (rien avant celui-ci) pour
+    // garantir que la vue change réellement et que "moveend" se déclenche bien — un filet de
+    // sécurité déclenche quand même le rendu si l'événement ne survenait pas.
+    let settled = false;
+    function onSettled() {
+      if (settled) return;
+      settled = true;
+      renderArcs();
+      renderScaleBar();
+      if (previewMode) { statusEl.classList.add("done"); return; }
+      setTimeout(() => buildPdf().catch((error) => { console.error(error); statusEl.innerHTML = "La génération du PDF a échoué.<small>Ferme cette page et réessaie depuis la carte.</small>"; }), 900);
+    }
+    map.once("moveend", onSettled);
+    setTimeout(onSettled, 400);
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], animate: false });
+    else map.setView(liveMap.getCenter(), liveMap.getZoom(), { animate: false });
   }, 500));
 })();
