@@ -45,6 +45,39 @@
     <small class="legend-note">Épaisseur du trait proportionnelle au nombre d'actifs. Flux affichés : ${meta.threshold} actifs ou plus.${distantCount ? ` ${distantCount} flux vers l'outre-mer ou l'étranger non représentés sur ce cadrage.` : ""}</small>
   `;
 
+  // Résumé chiffré : reprend les mêmes calculs que le panneau de droite de la carte principale
+  // (renderStats dans app.js), pour que la version imprimée porte la même information.
+  (function renderSummary() {
+    const code = state.selected;
+    const fmt = (v) => Math.round(v).toLocaleString("fr-FR");
+    const outRows = rows.filter((r) => r.o === code).sort((a, b) => b.v - a.v);
+    const inRows = rows.filter((r) => r.d === code).sort((a, b) => b.v - a.v);
+    const totalOut = d3.sum(outRows, (d) => d.v);
+    const totalIn = d3.sum(inRows, (d) => d.v);
+    const total = totalOut + totalIn;
+    const outShare = total ? Math.round((totalOut / total) * 100) : 0;
+    const inShare = total ? 100 - outShare : 0;
+    const balance = totalIn - totalOut;
+    const isEpci = meta.territoryType === "EPCI";
+    const profileWord = outShare >= inShare ? (isEpci ? "résidentiel" : "résidentielle") : (isEpci ? "attractif" : "attractive");
+    const listRows = (arr, key) => arr.slice(0, 4).map((r) => `<li><span>${r[key]}</span><b>${fmt(r.v)}</b></li>`).join("") || "<li><span>Aucun flux affiché</span></li>";
+
+    document.getElementById("printSummary").innerHTML = `
+      <strong class="summary-title">Portrait des échanges · ${meta.name}</strong>
+      <div class="summary-kpis">
+        <div><b>${fmt(totalOut)}</b><span>Flux sortants · ${outRows.length} destinations</span></div>
+        <div><b>${fmt(totalIn)}</b><span>Flux entrants · ${inRows.length} origines</span></div>
+      </div>
+      <div class="summary-split-labels"><span class="out">${outShare}% sortants</span><span class="in">${inShare}% entrants</span></div>
+      <div class="summary-split-bar"><i style="width:${outShare}%"></i><b style="width:${inShare}%"></b></div>
+      <div class="summary-balance">${isEpci ? "Intercommunalité" : "Commune"} plutôt <strong>${profileWord}</strong> — balance des flux : <strong>${balance >= 0 ? "+" : ""}${fmt(balance)}</strong>. ${balance >= 0 ? "Davantage d'actifs viennent y travailler." : "Davantage de résidents partent travailler ailleurs."}</div>
+      <div class="summary-lists">
+        <div><strong>Top destinations (sortant)</strong><ol>${listRows(outRows, "dname")}</ol></div>
+        <div><strong>Top origines (entrant)</strong><ol>${listRows(inRows, "oname")}</ol></div>
+      </div>
+    `;
+  })();
+
   const map = L.map("printMapCanvas", { zoomControl: false, attributionControl: false, preferCanvas: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, tap: false });
   const NeutralTileLayer = L.TileLayer.extend({
     createTile(coords, done) {
