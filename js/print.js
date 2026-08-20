@@ -153,7 +153,15 @@
   async function buildPdf() {
     const canvas = await html2canvas(document.getElementById("printPage"), { scale: 2.2, useCORS: true, backgroundColor: "#ffffff" });
     const { jsPDF } = window.jspdf; const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
-    pdf.addImage(canvas.toDataURL("image/jpeg", .92), "JPEG", 0, 0, 420, 297, undefined, "FAST");
+    const dataUrl = canvas.toDataURL("image/jpeg", .92);
+    pdf.addImage(dataUrl, "JPEG", 0, 0, 420, 297, undefined, "FAST");
+    if (new URLSearchParams(location.search).get("debugHold") === "1") {
+      window.__debugInfo = { canvasW: canvas.width, canvasH: canvas.height, ratio: canvas.width / canvas.height, expectedRatio: 420 / 297 };
+      statusEl.innerHTML = "DEBUG HOLD";
+      canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:contain;z-index:9999;background:#fff";
+      document.body.appendChild(canvas);
+      return;
+    }
     window.location.replace(URL.createObjectURL(pdf.output("blob")));
   }
   map.whenReady(() => setTimeout(() => {

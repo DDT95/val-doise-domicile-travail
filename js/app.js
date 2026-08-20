@@ -740,6 +740,7 @@
       return;
     }
     const preview = new URLSearchParams(location.search).has("printPreview");
-    window.open(`print.html${preview ? "?preview=1" : ""}`, "_blank");
+    const debugHold = new URLSearchParams(location.search).has("printDebugHold");
+    window.open(`print.html${debugHold ? "?debugHold=1" : preview ? "?preview=1" : ""}`, "_blank");
   });
 })();
