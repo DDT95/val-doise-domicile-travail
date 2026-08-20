@@ -740,7 +740,6 @@
       return;
     }
     const preview = new URLSearchParams(location.search).has("printPreview");
-    const debugHold = new URLSearchParams(location.search).has("printDebugHold");
-    window.open(`print.html${debugHold ? "?debugHold=1" : preview ? "?preview=1" : ""}`, "_blank");
+    window.open(`print.html${preview ? "?preview=1" : ""}`, "_blank");
   });
 })();

@@ -79,68 +79,57 @@
     bounds.extend([r.dlat, r.dlon]);
   });
 
-  // Arcs (surcouche SVG D3 reprenant le rendu de la carte principale)
-  const overlaySvg = d3.select(map.getPanes().overlayPane).append("svg").attr("class", "flow-overlay");
-  const overlayG = overlaySvg.append("g");
-  const gArcs = overlayG.append("g");
-  const gPoints = overlayG.append("g");
-  function projectLatLon(lon, lat) { return map.latLngToLayerPoint([lat, lon]); }
-  function updateOverlayFrame() {
-    const b = map.getBounds().pad(0.3);
-    const topLeft = map.latLngToLayerPoint(b.getNorthWest());
-    const bottomRight = map.latLngToLayerPoint(b.getSouthEast());
-    overlaySvg.attr("width", bottomRight.x - topLeft.x).attr("height", bottomRight.y - topLeft.y).style("left", topLeft.x + "px").style("top", topLeft.y + "px");
-    overlayG.attr("transform", `translate(${-topLeft.x},${-topLeft.y})`);
+  // Arcs : dessinés en L.polyline natif, positionné par Leaflet lui-même (comme le territoire
+  // et le contour départemental), plutôt qu'une surcouche SVG D3 à repositionner manuellement.
+  // Une surcouche manuelle (position CSS + transform recalculés à la main) s'est révélée
+  // produire, dans ce contexte précis, des arcs visuellement décalés du reste de la carte alors
+  // que tous les calculs de coordonnées vérifiaient juste à l'unité près — signe d'un problème
+  // de peinture du navigateur sur cette combinaison précise (SVG positionné en CSS imbriqué
+  // dans un panneau Leaflet), pas d'un bug de projection. Confier le tracé à Leaflet évite la
+  // question entièrement : la même mécanique qui positionne déjà correctement les polygones.
+  function quadraticPoint(p0, control, p2, t) {
+    const mt = 1 - t;
+    return { x: mt * mt * p0.x + 2 * mt * t * control.x + t * t * p2.x, y: mt * mt * p0.y + 2 * mt * t * control.y + t * t * p2.y };
   }
-  function curvedPath(x0, y0, x1, y1) {
-    const dx = x1 - x0, dy = y1 - y0, dist = Math.sqrt(dx * dx + dy * dy);
-    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, offset = dist * 0.18;
+  function curvedLatLngs(s, t) {
+    const dx = t.x - s.x, dy = t.y - s.y, dist = Math.sqrt(dx * dx + dy * dy);
+    const mx = (s.x + t.x) / 2, my = (s.y + t.y) / 2, offset = dist * 0.18;
     const nx = -dy / (dist || 1), ny = dx / (dist || 1);
-    const cx = mx + nx * offset, cy = my + ny * offset;
-    return `M${x0},${y0} Q${cx},${cy} ${x1},${y1}`;
+    const control = { x: mx + nx * offset, y: my + ny * offset };
+    const STEPS = 24;
+    const latlngs = [];
+    for (let i = 0; i <= STEPS; i++) {
+      const p = quadraticPoint(s, control, t, i / STEPS);
+      latlngs.push(map.layerPointToLatLng([p.x, p.y]));
+    }
+    return latlngs;
   }
+  const arcLayer = L.layerGroup().addTo(map);
   function renderArcs() {
-    updateOverlayFrame();
+    arcLayer.clearLayers();
     const code = state.selected;
     const maxV = d3.max(rows, (d) => d.v) || 1;
     const widthScale = d3.scaleSqrt().domain([meta.threshold, Math.max(maxV, meta.threshold + 1)]).range([0.8, 7]);
     const opacityScale = d3.scaleSqrt().domain([meta.threshold, Math.max(maxV, meta.threshold + 1)]).range([0.4, 0.92]);
     const arcs = rows.map((f) => {
       const isOut = f.o === code;
-      const s = projectLatLon(f.olon, f.olat);
-      const t = projectLatLon(f.dlon, f.dlat);
-      return { ...f, isOut, d: curvedPath(s.x, s.y, t.x, t.y), w: widthScale(f.v), op: opacityScale(f.v) };
+      const s = map.latLngToLayerPoint([f.olat, f.olon]);
+      const t = map.latLngToLayerPoint([f.dlat, f.dlon]);
+      return { ...f, isOut, latlngs: curvedLatLngs(s, t), w: widthScale(f.v), op: opacityScale(f.v) };
     }).sort((a, b) => a.v - b.v);
 
-    gArcs.selectAll("path")
-      .data(arcs)
-      .join("path")
-      .attr("d", (d) => d.d)
-      .attr("fill", "none")
-      .attr("stroke", (d) => (d.isOut ? "#b8752a" : "#000091"))
-      .attr("stroke-width", (d) => d.w)
-      .attr("stroke-opacity", (d) => d.op)
-      .attr("stroke-linecap", "round");
+    arcs.forEach((d) => {
+      L.polyline(d.latlngs, { color: d.isOut ? "#b8752a" : "#000091", weight: d.w, opacity: d.op, interactive: false, lineCap: "round" }).addTo(arcLayer);
+    });
 
-    const points = [];
     const seen = new Set();
     arcs.forEach((d) => {
       const otherKey = (d.isOut ? d.d : d.o) + (d.isOut ? "out" : "in");
       if (seen.has(otherKey)) return;
       seen.add(otherKey);
-      const lon = d.isOut ? d.dlon : d.olon, lat = d.isOut ? d.dlat : d.olat;
-      const p = projectLatLon(lon, lat);
-      points.push({ x: p.x, y: p.y, isOut: d.isOut });
+      const latlng = d.isOut ? [d.dlat, d.dlon] : [d.olat, d.olon];
+      L.circleMarker(latlng, { radius: 3, color: "#fff", weight: 0.8, fillColor: d.isOut ? "#b8752a" : "#000091", fillOpacity: 1, interactive: false }).addTo(arcLayer);
     });
-    gPoints.selectAll("circle")
-      .data(points)
-      .join("circle")
-      .attr("cx", (d) => d.x)
-      .attr("cy", (d) => d.y)
-      .attr("r", 3)
-      .attr("fill", (d) => (d.isOut ? "#b8752a" : "#000091"))
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 0.8);
   }
 
   function niceScaleNumber(number) { const power = Math.pow(10, String(Math.floor(number)).length - 1); const digit = number / power; return power * (digit >= 10 ? 10 : digit >= 5 ? 5 : digit >= 3 ? 3 : digit >= 2 ? 2 : 1); }
@@ -153,36 +142,24 @@
   async function buildPdf() {
     const canvas = await html2canvas(document.getElementById("printPage"), { scale: 2.2, useCORS: true, backgroundColor: "#ffffff" });
     const { jsPDF } = window.jspdf; const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
-    const dataUrl = canvas.toDataURL("image/jpeg", .92);
-    pdf.addImage(dataUrl, "JPEG", 0, 0, 420, 297, undefined, "FAST");
-    if (new URLSearchParams(location.search).get("debugHold") === "1") {
-      window.__debugInfo = { canvasW: canvas.width, canvasH: canvas.height, ratio: canvas.width / canvas.height, expectedRatio: 420 / 297 };
-      statusEl.innerHTML = "DEBUG HOLD";
-      canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:contain;z-index:9999;background:#fff";
-      document.body.appendChild(canvas);
-      return;
-    }
+    pdf.addImage(canvas.toDataURL("image/jpeg", .92), "JPEG", 0, 0, 420, 297, undefined, "FAST");
     window.location.replace(URL.createObjectURL(pdf.output("blob")));
   }
-  map.whenReady(() => setTimeout(() => {
-    map.invalidateSize();
-    // Les positions des arcs (surcouche D3, projetées via latLngToLayerPoint) ne doivent être
-    // calculées qu'une fois la vue définitivement stabilisée : Leaflet ne remet à jour son
-    // origine de pixels qu'à "moveend". Un seul fitBounds au total (rien avant celui-ci) pour
-    // garantir que la vue change réellement et que "moveend" se déclenche bien — un filet de
-    // sécurité déclenche quand même le rendu si l'événement ne survenait pas.
-    let settled = false;
-    function onSettled() {
-      if (settled) return;
-      settled = true;
-      renderArcs();
-      renderScaleBar();
-      if (previewMode) { statusEl.classList.add("done"); return; }
-      setTimeout(() => buildPdf().catch((error) => { console.error(error); statusEl.innerHTML = "La génération du PDF a échoué.<small>Ferme cette page et réessaie depuis la carte.</small>"; }), 900);
-    }
-    map.once("moveend", onSettled);
-    setTimeout(onSettled, 400);
-    if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], animate: false });
-    else map.setView(liveMap.getCenter(), liveMap.getZoom(), { animate: false });
-  }, 500));
+  // map.whenReady()/"moveend" se sont révélés peu fiables ici : la carte n'a jamais reçu de vue
+  // avant ce point (aucun setView/fitBounds initial), donc whenReady n'a rien de garanti à
+  // attendre — parfois un mécanisme interne de Leaflet lui donne malgré tout une vue par défaut
+  // (arcs rendus, mais depuis une origine de pixels non pertinente), parfois rien ne se
+  // déclenche jamais (page bloquée indéfiniment sur "Préparation..."). Avec animate:false,
+  // fitBounds/setView appellent _resetView de façon SYNCHRONE : la vue est donc déjà définitive
+  // dès la ligne suivante, sans dépendre d'aucun événement.
+  map.invalidateSize();
+  if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], animate: false });
+  else map.setView(liveMap.getCenter(), liveMap.getZoom(), { animate: false });
+  renderArcs();
+  renderScaleBar();
+  if (previewMode) {
+    statusEl.classList.add("done");
+  } else {
+    setTimeout(() => buildPdf().catch((error) => { console.error(error); statusEl.innerHTML = "La génération du PDF a échoué.<small>Ferme cette page et réessaie depuis la carte.</small>"; }), 900);
+  }
 })();
