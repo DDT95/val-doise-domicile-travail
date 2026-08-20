@@ -63,7 +63,7 @@
     const listRows = (arr, key) => arr.slice(0, 4).map((r) => `<li><span>${r[key]}</span><b>${fmt(r.v)}</b></li>`).join("") || "<li><span>Aucun flux affiché</span></li>";
 
     document.getElementById("printSummary").innerHTML = `
-      <strong class="summary-title">Portrait des échanges · ${meta.name}</strong>
+      <strong class="summary-title">${meta.name}</strong>
       <div class="summary-kpis">
         <div><b>${fmt(totalOut)}</b><span>Flux sortants · ${outRows.length} destinations</span></div>
         <div><b>${fmt(totalIn)}</b><span>Flux entrants · ${inRows.length} origines</span></div>
