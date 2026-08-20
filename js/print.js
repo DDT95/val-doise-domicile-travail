@@ -79,13 +79,6 @@
     bounds.extend([r.dlat, r.dlon]);
   });
 
-  // Un premier cadrage synchrone est indispensable ici : Leaflet ne considère la carte comme
-  // "chargée" (map.whenReady) qu'une fois qu'une vue lui a été donnée. Sans lui, whenReady
-  // n'appelle jamais son callback et toute la suite (rendu des arcs, PDF) reste bloquée.
-  map.invalidateSize();
-  if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], animate: false });
-  else map.setView(liveMap.getCenter(), liveMap.getZoom(), { animate: false });
-
   // Arcs (surcouche SVG D3 reprenant le rendu de la carte principale)
   const overlaySvg = d3.select(map.getPanes().overlayPane).append("svg").attr("class", "flow-overlay");
   const overlayG = overlaySvg.append("g");
@@ -158,18 +151,9 @@
     document.getElementById("printScale").innerHTML = `<div class="scale-frame" style="width:${fullPx}px"><div class="scale-bar-row">${bars}</div><div class="scale-ticks" style="width:${fullPx}px">${ticks}<span class="scale-unit" style="left:${fullPx}px">${unitLabel}</span></div></div>`;
   }
   async function buildPdf() {
-    const svgBefore = document.querySelector(".flow-overlay path") ? document.querySelector(".flow-overlay path").getAttribute("d") : null;
     const canvas = await html2canvas(document.getElementById("printPage"), { scale: 2.2, useCORS: true, backgroundColor: "#ffffff" });
-    const svgAfter = document.querySelector(".flow-overlay path") ? document.querySelector(".flow-overlay path").getAttribute("d") : null;
     const { jsPDF } = window.jspdf; const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
     pdf.addImage(canvas.toDataURL("image/jpeg", .92), "JPEG", 0, 0, 420, 297, undefined, "FAST");
-    window.__debugInfo = { svgBefore, svgAfter, mapPaneTransform: getComputedStyle(document.querySelector(".leaflet-map-pane")).transform };
-    if (new URLSearchParams(location.search).get("debugHold") === "1") {
-      statusEl.innerHTML = "DEBUG HOLD — voir window.__debugInfo";
-      canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:contain;z-index:9999;background:#fff";
-      document.body.appendChild(canvas);
-      return;
-    }
     window.location.replace(URL.createObjectURL(pdf.output("blob")));
   }
   map.whenReady(() => setTimeout(() => {
