@@ -79,6 +79,13 @@
     bounds.extend([r.dlat, r.dlon]);
   });
 
+  // Un premier cadrage synchrone est indispensable ici : Leaflet ne considère la carte comme
+  // "chargée" (map.whenReady) qu'une fois qu'une vue lui a été donnée. Sans lui, whenReady
+  // n'appelle jamais son callback et toute la suite (rendu des arcs, PDF) reste bloquée.
+  map.invalidateSize();
+  if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], animate: false });
+  else map.setView(liveMap.getCenter(), liveMap.getZoom(), { animate: false });
+
   // Arcs (surcouche SVG D3 reprenant le rendu de la carte principale)
   const overlaySvg = d3.select(map.getPanes().overlayPane).append("svg").attr("class", "flow-overlay");
   const overlayG = overlaySvg.append("g");
