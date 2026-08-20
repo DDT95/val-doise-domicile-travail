@@ -158,9 +158,13 @@
     document.getElementById("printScale").innerHTML = `<div class="scale-frame" style="width:${fullPx}px"><div class="scale-bar-row">${bars}</div><div class="scale-ticks" style="width:${fullPx}px">${ticks}<span class="scale-unit" style="left:${fullPx}px">${unitLabel}</span></div></div>`;
   }
   async function buildPdf() {
+    const svgBefore = document.querySelector(".flow-overlay path") ? document.querySelector(".flow-overlay path").getAttribute("d") : null;
     const canvas = await html2canvas(document.getElementById("printPage"), { scale: 2.2, useCORS: true, backgroundColor: "#ffffff" });
+    const svgAfter = document.querySelector(".flow-overlay path") ? document.querySelector(".flow-overlay path").getAttribute("d") : null;
     const { jsPDF } = window.jspdf; const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
     pdf.addImage(canvas.toDataURL("image/jpeg", .92), "JPEG", 0, 0, 420, 297, undefined, "FAST");
+    window.__debugInfo = { svgBefore, svgAfter, mapPaneTransform: getComputedStyle(document.querySelector(".leaflet-map-pane")).transform };
+    if (new URLSearchParams(location.search).get("debugHold") === "1") { statusEl.innerHTML = "DEBUG HOLD — voir window.__debugInfo"; return; }
     window.location.replace(URL.createObjectURL(pdf.output("blob")));
   }
   map.whenReady(() => setTimeout(() => {
