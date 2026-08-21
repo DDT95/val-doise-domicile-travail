@@ -30,7 +30,11 @@
   // territoire dont tous les autres flux restent régionaux. Au-delà d'un rayon raisonnable
   // autour du territoire sélectionné, le flux est compté mais ni dessiné ni pris en compte
   // dans le cadrage — cohérent avec le traitement déjà appliqué à l'outre-mer.
-  const REGIONAL_RADIUS_M = 150000;
+  // Les flux d'un EPCI cumulent ceux de toutes ses communes membres : la probabilité qu'au
+  // moins l'un d'eux atteigne le bord d'un rayon de 150 km (Reims, Amiens...) est bien plus
+  // élevée que pour une seule commune. Sans quoi la carte d'un EPCI dézoome régulièrement à
+  // 250-300 km de large, où le Val-d'Oise (env. 70 km) devient un point minuscule au centre.
+  const REGIONAL_RADIUS_M = state.scale === "epci" ? 80000 : 150000;
   const code = state.selected;
   const coreFeatures = territories.features.filter((f) => f.properties._printCore);
   const coreCenter = coreFeatures.length ? L.geoJSON({ type: "FeatureCollection", features: coreFeatures }).getBounds().getCenter() : null;
