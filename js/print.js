@@ -24,8 +24,25 @@
   // invisible. Ces flux réels restent comptés mais sont exclus du cadrage et du tracé A3.
   const METRO_BOUNDS = { latMin: 41, latMax: 51.5, lonMin: -5.5, lonMax: 10 };
   const inMetro = (lat, lon) => lat >= METRO_BOUNDS.latMin && lat <= METRO_BOUNDS.latMax && lon >= METRO_BOUNDS.lonMin && lon <= METRO_BOUNDS.lonMax;
+
+  // Même logique à une échelle plus resserrée : un unique flux réel mais très éloigné (ex.
+  // Omerville → Chaumont, ~230 km) forcerait un cadrage sur la moitié de la France pour un
+  // territoire dont tous les autres flux restent régionaux. Au-delà d'un rayon raisonnable
+  // autour du territoire sélectionné, le flux est compté mais ni dessiné ni pris en compte
+  // dans le cadrage — cohérent avec le traitement déjà appliqué à l'outre-mer.
+  const REGIONAL_RADIUS_M = 150000;
+  const code = state.selected;
+  const coreFeatures = territories.features.filter((f) => f.properties._printCore);
+  const coreCenter = coreFeatures.length ? L.geoJSON({ type: "FeatureCollection", features: coreFeatures }).getBounds().getCenter() : null;
+  const nearCore = (r) => {
+    if (!coreCenter) return true;
+    const isOut = r.o === code;
+    const other = isOut ? [r.dlat, r.dlon] : [r.olat, r.olon];
+    return L.latLng(coreCenter).distanceTo(other) <= REGIONAL_RADIUS_M;
+  };
+
   const allRows = app.rows();
-  const rows = allRows.filter((r) => inMetro(r.olat, r.olon) && inMetro(r.dlat, r.dlon));
+  const rows = allRows.filter((r) => inMetro(r.olat, r.olon) && inMetro(r.dlat, r.dlon) && nearCore(r));
   const distantCount = allRows.length - rows.length;
 
   const directionLabel = meta.showOut && meta.showIn
@@ -42,7 +59,7 @@
       <span><i style="background:#b8752a"></i>Sortants — résidents travaillant ailleurs</span>
       <span><i style="background:#000091"></i>Entrants — actifs venant travailler ici</span>
     </div>
-    <small class="legend-note">Épaisseur du trait proportionnelle au nombre d'actifs. Flux affichés : ${meta.threshold} actifs ou plus.${distantCount ? ` ${distantCount} flux vers l'outre-mer ou l'étranger non représentés sur ce cadrage.` : ""}</small>
+    <small class="legend-note">Épaisseur du trait proportionnelle au nombre d'actifs. Flux affichés : ${meta.threshold} actifs ou plus.${distantCount ? ` ${distantCount} flux trop éloignés (outre-mer, étranger ou hors région) non représentés sur ce cadrage.` : ""}</small>
   `;
 
   // Résumé chiffré : reprend les mêmes calculs que le panneau de droite de la carte principale
