@@ -7,7 +7,7 @@
 <title>Domicile · Travail · Val-d'Oise · DDT 95</title>
 <link rel="preconnect" href="https://tile.openstreetmap.org">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<link rel="stylesheet" href="css/style.css?v=20260820-2">
+<link rel="stylesheet" href="css/style.css?v=20260827-road1">
 </head>
 <body>
 <header class="topbar">
@@ -55,6 +55,9 @@
         <button type="button" class="territory-mode-card" data-map-scale="epci" aria-pressed="false">
           <i class="mode-switch" aria-hidden="true"></i><span><b>EPCI</b><small>10 intercommunalités · Argenteuil et Bezons inclus</small></span><em class="mode-color epci" aria-hidden="true"></em>
         </button>
+        <button type="button" id="roadNetworkMode" class="territory-mode-card road-mode-card" aria-haspopup="dialog" aria-controls="roadNetworkDialog">
+          <i class="mode-switch" aria-hidden="true"></i><span><b>EPCI · réseau routier</b><small>Trajets modélisés sur les routes réelles</small></span><em class="mode-color road" aria-hidden="true"></em>
+        </button>
       </div>
     </section>
 
@@ -101,6 +104,17 @@
     <div id="detailContent"></div>
   </aside>
 </main>
+
+<dialog id="roadNetworkDialog" class="road-network-dialog">
+  <button id="closeRoadNetwork" class="dialog-close road-close" aria-label="Fermer">×</button>
+  <div class="road-network-head">
+    <div><span class="eyebrow">MODÉLISATION PGROUTING · INSEE RP2022</span><h2>Flux domicile-travail par le réseau routier</h2><p>Choisissez un territoire pour suivre les déplacements sur les routes réellement empruntées dans le modèle.</p></div>
+    <label for="roadTerritorySelect">Territoire<select id="roadTerritorySelect">
+      <option value="">Choisir un EPCI…</option><option value="cacp.html">CA de Cergy-Pontoise</option><option value="plaine-vallee.html">CA Plaine Vallée</option><option value="roissy-pays-france.html">CA Roissy Pays de France</option><option value="val-parisis.html">CA Val Parisis</option><option value="vallee-oise-trois-forets.html">CC de la Vallée de l’Oise et des Trois Forêts</option><option value="sausseron-impressionnistes.html">CC Sausseron Impressionnistes</option><option value="vexin-centre.html">CC Vexin Centre</option><option value="vexin-val-de-seine.html">CC Vexin Val de Seine</option><option value="saint-germain-bezons.html">Saint-Germain Boucles de Seine · secteur Bezons</option><option value="argenteuil.html">Métropole du Grand Paris · secteur Argenteuil</option><option disabled>CC Carnelle Pays-de-France · en cours</option><option disabled>CA Haut Val-d’Oise · en cours</option>
+    </select></label>
+  </div>
+  <div class="road-network-stage"><div id="roadNetworkEmpty"><strong>Sélectionnez un territoire</strong><span>La carte animée du réseau routier s’affichera ici.</span></div><iframe id="roadNetworkFrame" title="Flux domicile-travail modélisés sur le réseau routier" loading="lazy" hidden></iframe></div>
+</dialog>
 
 <dialog id="comprendreDialog" class="dialog">
   <button class="dialog-close" data-close="comprendreDialog" aria-label="Fermer">×</button>
@@ -160,6 +174,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-<script src="js/app.js?v=20260820-5"></script>
+<script src="js/app.js?v=20260827-road1"></script>
 </body>
 </html>
