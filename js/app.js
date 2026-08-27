@@ -743,18 +743,4 @@
     window.open(`print.html${preview ? "?preview=1" : ""}`, "_blank");
   });
 
-  // ---------- EPCI via le réseau routier ----------
-  const roadNetworkDialog = document.getElementById("roadNetworkDialog");
-  const roadNetworkMode = document.getElementById("roadNetworkMode");
-  const roadTerritorySelect = document.getElementById("roadTerritorySelect");
-  const roadNetworkFrame = document.getElementById("roadNetworkFrame");
-  const roadNetworkEmpty = document.getElementById("roadNetworkEmpty");
-  roadNetworkMode.addEventListener("click", () => roadNetworkDialog.showModal());
-  document.getElementById("closeRoadNetwork").addEventListener("click", () => roadNetworkDialog.close());
-  roadNetworkDialog.addEventListener("click", (event) => { if (event.target === roadNetworkDialog) roadNetworkDialog.close(); });
-  roadTerritorySelect.addEventListener("change", () => {
-    const file = roadTerritorySelect.value;
-    if (!file) { roadNetworkFrame.hidden = true; roadNetworkFrame.removeAttribute("src"); roadNetworkEmpty.hidden = false; return; }
-    roadNetworkEmpty.hidden = true; roadNetworkFrame.hidden = false; roadNetworkFrame.src = "reseau-routier/" + file;
-  });
 })();
