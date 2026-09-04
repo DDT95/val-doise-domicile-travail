@@ -1,4 +1,4 @@
-"""Agrège le fichier détail INSEE RP2022 MOBPRO aux échelles commune et EPCI."""
+"""Agrège le fichier détail INSEE RP2023 MOBPRO aux échelles commune et EPCI."""
 import json
 import csv
 import io
@@ -37,6 +37,20 @@ def distribution(df, column, groups):
             "pct": round(value / total * 100, 1) if total else 0,
         }
         for label, values in groups
+    ]
+
+
+def employment_distribution(df):
+    """Répartit les statuts RP2023, dont la codification a changé depuis le RP2022."""
+    total = df.IPONDI.sum()
+    groups = [
+        ("Emploi stable", (df.STAT == "111") & (df.EMPL == "101")),
+        ("Contrat court / insertion", (df.STAT == "111") & (df.EMPL == "102")),
+        ("Indépendant / employeur", df.STAT.isin(["121", "122"])),
+    ]
+    return [
+        {"label": label, "value": round(value := df.loc[mask, "IPONDI"].sum(), 1), "pct": round(value / total * 100, 1) if total else 0}
+        for label, mask in groups
     ]
 
 
@@ -79,8 +93,7 @@ def build_profile(code, name, members, df, labels, populations, kind="commune", 
         origin_names["INTERNAL"] = "Au sein de l’EPCI"
 
     age = [("15-24 ans", ["015", "020"]), ("25-34 ans", ["025", "030"]), ("35-44 ans", ["035", "040"]), ("45-54 ans", ["045", "050"]), ("55-64 ans", ["055", "060"]), ("65 ans ou plus", [f"{n:03}" for n in range(65, 120, 5)])]
-    diploma = [("Sans diplôme", ["01", "02", "03"]), ("Brevet", ["11", "12"]), ("CAP-BEP", ["13"]), ("Baccalauréat", ["14", "15"]), ("Bac+2", ["16"]), ("Bac+3 ou plus", ["17", "18", "19"])]
-    employment = [("Emploi stable", ["16"]), ("Contrat court / insertion", ["11", "12", "13", "14", "15"]), ("Indépendant / employeur", ["21", "22", "23"])]
+    diploma = [("Sans diplôme", ["101", "102"]), ("Brevet", ["103"]), ("CAP-BEP", ["104"]), ("Baccalauréat", ["105", "106"]), ("Bac+2", ["108"]), ("Bac+3 ou plus", ["109", "110", "111"])]
     return {
         "code": code,
         "name": name,
@@ -97,8 +110,8 @@ def build_profile(code, name, members, df, labels, populations, kind="commune", 
         "age": distribution(residents, "AGEREVQ", age),
         "profession": distribution(residents, "GS", [(labels["GS"].get(str(i), str(i)), [str(i)]) for i in range(1, 7)]),
         "diploma": distribution(residents, "DIPL", diploma),
-        "employment": distribution(residents, "EMPL", employment),
-        "worktime": distribution(residents, "TP", [("Temps complet", ["1"]), ("Temps partiel", ["2"])]),
+        "employment": employment_distribution(residents),
+        "worktime": distribution(residents, "TP", [("Temps complet", ["11"]), ("Temps partiel", ["12"])]),
         "transport": distribution(residents, "TRANS", [(labels["TRANS"].get(str(i), str(i)), [str(i)]) for i in range(1, 7)]),
         "housing": distribution(residents, "TYPL", [("Maison", ["1"]), ("Appartement", ["2"]), ("Autre", ["3", "4", "5", "6", "Z"])]),
         "cars": distribution(residents, "VOIT", [("Sans voiture", ["0"]), ("Une voiture", ["1"]), ("Deux voitures ou plus", ["2", "3"])]),
@@ -109,13 +122,13 @@ def build_profile(code, name, members, df, labels, populations, kind="commune", 
 
 
 def main():
-    meta = pd.read_csv(RAW / "varmod_mobpro_2022.csv", sep=";", dtype=str)
+    meta = pd.read_csv(RAW / "varmod_mobpro_2023.csv", sep=";", dtype=str)
     labels = {var: dict(zip(part.COD_MOD, part.LIB_MOD)) for var, part in meta.groupby("COD_VAR")}
     commune_names = labels["COMMUNE"]
     commune_codes = sorted(code for code in commune_names if code.startswith("95"))
     populations = population_reference()
-    columns = ["COMMUNE", "DCLT", "AGEREVQ", "GS", "DIPL", "EMPL", "INEEM", "IPONDI", "SEXE", "TP", "TRANS", "TYPL", "VOIT"]
-    df = pq.read_table(RAW / "RP2022_mobpro.parquet", columns=columns).to_pandas()
+    columns = ["COMMUNE", "DCLT", "AGEREVQ", "GS", "DIPL", "EMPL", "STAT", "INEEM", "IPONDI", "SEXE", "TP", "TRANS", "TYPL", "VOIT"]
+    df = pq.read_table(RAW / "RP2023_mobpro.parquet", columns=columns).to_pandas()
     for column in columns:
         if column != "IPONDI":
             df[column] = df[column].astype(str).str.replace(r"\.0$", "", regex=True)

@@ -423,7 +423,7 @@
       <div class="dashboard-grid" style="margin-top:16px">
         ${repartitionDonut}
         ${balanceDonut}
-        <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Une synthèse à seuil nul</h3><p>Ces chiffres agrègent l'intégralité des flux domicile-travail du Val-d'Oise (RP2022, sans seuil minimum), contrairement à la carte qui applique le seuil et le sens choisis dans la barre latérale.</p></article>
+        <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Une synthèse à seuil nul</h3><p>Ces chiffres agrègent l'intégralité des flux domicile-travail du Val-d'Oise (RP2023, sans seuil minimum), contrairement à la carte qui applique le seuil et le sens choisis dans la barre latérale.</p></article>
         ${residentiel}
         ${emploi}
         ${intraLiaisons}
@@ -654,7 +654,7 @@
     detailContent.innerHTML = `
       <span class="detail-tag">${territoryType.toUpperCase()} · MOBILITÉS · VAL-D'OISE</span>
       <h2>${c.name}</h2>
-      <p class="subtitle">Flux domicile-travail · INSEE RP2022</p>
+      <p class="subtitle">Flux domicile-travail · INSEE RP2023</p>
       <div class="property-grid">
         <div class="property out"><small>Flux sortants affichés</small><strong>${format(totalOut)}</strong><small>${outRows.length} destinations</small></div>
         <div class="property"><small>Flux entrants affichés</small><strong>${format(totalIn)}</strong><small>${inRows.length} origines</small></div>

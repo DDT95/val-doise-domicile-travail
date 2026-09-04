@@ -55,7 +55,7 @@
   document.getElementById("printTitle").textContent = `Domicile ↔ Travail · ${meta.name}`;
   document.getElementById("printSubtitle").textContent = `${meta.territoryType} · ${directionLabel} · seuil ≥ ${meta.threshold} actifs`;
   const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-  document.getElementById("printSources").innerHTML = `<span class="src-line">Source : Insee, Mobilités professionnelles 2022 — déplacements domicile-lieu de travail (RP2022), Licence Ouverte</span><span class="src-line">Auteur : DDT 95</span><span class="src-line">Date : ${today}</span>`;
+  document.getElementById("printSources").innerHTML = `<span class="src-line">Source : Insee, Mobilités professionnelles 2023 — déplacements domicile-lieu de travail (RP2023), Licence Ouverte</span><span class="src-line">Auteur : DDT 95</span><span class="src-line">Date : ${today}</span>`;
 
   document.getElementById("printLegend").innerHTML = `
     <strong class="legend-title">Flux domicile-travail</strong>

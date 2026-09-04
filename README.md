@@ -10,9 +10,7 @@ Le cadrage complet de la page **« Comment se loge-t-on dans le Val-d’Oise ? �
 
 ## Données
 
-Sources INSEE RP2022, Licence Ouverte / Open Licence (Etalab) :
-- [base agrégée des flux domicile-travail](https://www.insee.fr/fr/statistiques/8582949), utilisée pour la carte ;
-- [fichier détail Mobilités professionnelles](https://www.insee.fr/fr/statistiques/8589904), utilisé avec le poids individuel `IPONDI` pour les fiches communales et intercommunales.
+Source [INSEE RP2023 — fichier détail Mobilités professionnelles](https://www.insee.fr/fr/statistiques/9004795), Licence Ouverte / Open Licence (Etalab). Le poids individuel `IPONDI` est agrégé pour construire la carte et les fiches communales et intercommunales.
 
 Les contours communaux proviennent de [france-geojson](https://github.com/gregoiredavid/france-geojson) et les centroïdes de communes de [geo.api.gouv.fr](https://geo.api.gouv.fr/).
 
@@ -29,14 +27,13 @@ Puis ouvrir `http://localhost:8420`.
 ## Régénérer les données
 
 Télécharger dans `data/raw/` :
-- `base-flux-mobilite-domicile-lieu-travail-2022.csv` depuis la [page INSEE](https://www.insee.fr/fr/statistiques/8582949)
 - `all_communes.json` : `curl "https://geo.api.gouv.fr/communes?fields=nom,code,centre,codeDepartement&format=json&geometry=centre" -o data/raw/all_communes.json`
-- `RP2022_mobpro.parquet` et `varmod_mobpro_2022.csv` depuis la [page du fichier détail INSEE](https://www.insee.fr/fr/statistiques/8589904)
+- `RP2023_mobpro.parquet` et `varmod_mobpro_2023.csv` depuis la [page du fichier détail INSEE](https://www.insee.fr/fr/statistiques/9004795)
 
 Puis :
 
 ```
-pip install pandas
+pip install pandas pyarrow
 python3 scripts/build_data.py
 python3 scripts/build_profiles.py
 ```

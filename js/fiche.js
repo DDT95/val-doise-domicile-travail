@@ -68,15 +68,15 @@
     document.title = `${profile.name} · Fiche mobilités · DDT 95`;
     headerTitle.textContent = isEpci ? "Fiche EPCI" : "Fiche communale";
     territoryNote.innerHTML = isEpci
-      ? `<b>${profile.member_count} communes</b><span>Périmètre intercommunal complet · profils pondérés INSEE RP2022</span>`
-      : `<b>${specialLabel || "Commune du Val-d’Oise"}</b><span>Profil pondéré INSEE RP2022</span>`;
+      ? `<b>${profile.member_count} communes</b><span>Périmètre intercommunal complet · profils pondérés INSEE RP2023</span>`
+      : `<b>${specialLabel || "Commune du Val-d’Oise"}</b><span>Profil pondéré INSEE RP2023</span>`;
 
     root.innerHTML = `<div id="report">
       <section class="report-cover">
         <div class="cover-kicker">FICHE ${isEpci ? "INTERCOMMUNALE" : "COMMUNALE"} · MOBILITÉS PROFESSIONNELLES</div>
         <h1>${profile.name}</h1>
         <p>Qui travaille, où, comment et dans quelles conditions ? Portrait statistique des actifs occupés résidant dans ${territory} et des emplois qui y sont exercés.</p>
-        <div class="cover-meta"><span>INSEE · RP2022</span><span>${specialLabel || (isEpci ? `${profile.member_count} communes · EPCI ${profile.code}` : `Commune ${profile.code}`)}</span><span>DDT du Val-d’Oise</span><span>Valeurs pondérées</span></div>
+        <div class="cover-meta"><span>INSEE · RP2023</span><span>${specialLabel || (isEpci ? `${profile.member_count} communes · EPCI ${profile.code}` : `Commune ${profile.code}`)}</span><span>DDT du Val-d’Oise</span><span>Valeurs pondérées</span></div>
       </section>
       <div class="report-body">
         ${section("01 · REPÈRES", `${territoryTitle} en six chiffres`, `<div class="kpi-grid kpi-grid-six"><div class="kpi population-kpi"><small>Population municipale</small><strong>${fmt(profile.population)}</strong><span>habitants · population de référence ${profile.population_year}</span></div><div class="kpi"><small>Emplois localisés</small><strong>${fmt(profile.workers)}</strong><span>emplois exercés dans ${territory}, quelle que soit la résidence des actifs</span></div><div class="kpi"><small>Actifs occupés résidents</small><strong>${fmt(profile.residents)}</strong><span>habitants de 15 ans ou plus ayant un emploi</span></div><div class="kpi"><small>Concentration de l’emploi</small><strong>${concentration.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}</strong><span>emplois localisés pour 100 actifs occupés résidents</span></div><div class="kpi"><small>Travaillent sur place</small><strong>${localPct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}%</strong><span>${fmt(profile.local)} actifs résident et travaillent dans ${territory}</span></div><div class="kpi"><small>Ménage avec étudiant</small><strong>${profile.student_household_pct.toLocaleString("fr-FR")}%</strong><span>au moins un élève, étudiant ou stagiaire de 14 ans ou plus</span></div></div>`)}
@@ -85,7 +85,7 @@
         ${section("04 · DÉPLACEMENTS", "Comment va-t-on travailler ?", `<div class="charts-grid">${bars("Mode principal de transport", profile.transport, "orange")}${bars("Motorisation du ménage", profile.cars, "green")}</div>`)}
         ${section("05 · CADRE DE VIE", "Dans quel type de logement ?", `<div class="charts-grid">${donut("Type de logement", profile.housing, `${dominantHousing.label} dominant`, `${dominantHousing.pct.toLocaleString("fr-FR")}%`)}${donut("Présence d’élèves et étudiants", [{ label: "Ménage concerné", pct: profile.student_household_pct }, { label: "Autre ménage", pct: 100 - profile.student_household_pct }], "ménages concernés", `${profile.student_household_pct.toLocaleString("fr-FR")}%`, "green")}</div>`)}
         ${section("06 · POLARITÉS", "Principales destinations et origines", `<div class="rank-grid">${ranks("Où travaillent les habitants ?", profile.destinations)}${ranks(`D’où viennent ceux qui travaillent dans ${territory} ?`, profile.origins)}</div>`, "Effectifs estimés, classés par ordre décroissant.")}
-        ${section("SOURCE · MÉTHODE", "Bien lire cette fiche", `<div class="method-note"><strong>Sources :</strong> Insee, population municipale de référence 2023, en vigueur au 1er janvier 2026 ; Insee, Recensement de la population 2022, fichier détail Mobilités professionnelles domicile-lieu de travail, géographie au 1er janvier 2024. Les résultats de mobilité utilisent le poids individuel <strong>IPONDI</strong>. ${isEpci ? "Le périmètre EPCI est celui de l’API Découpage administratif ; les EPCI interdépartementaux sont analysés dans leur intégralité." : ""} Les faibles effectifs sont des ordres de grandeur. La statistique « ménage avec étudiant » ne signifie pas que l’actif est lui-même étudiant. Le principal employeur n’est pas affiché : aucune source homogène ne permet d’identifier avec fiabilité le premier établissement de chacune des 183 communes. Licence Ouverte / Etalab.</div>`)}
+        ${section("SOURCE · MÉTHODE", "Bien lire cette fiche", `<div class="method-note"><strong>Sources :</strong> Insee, population municipale de référence 2023, en vigueur au 1er janvier 2026 ; Insee, Recensement de la population 2023, fichier détail Mobilités professionnelles domicile-lieu de travail, géographie au 1er janvier 2025. Les résultats de mobilité utilisent le poids individuel <strong>IPONDI</strong>. ${isEpci ? "Le périmètre EPCI est celui de l’API Découpage administratif ; les EPCI interdépartementaux sont analysés dans leur intégralité." : ""} Les faibles effectifs sont des ordres de grandeur. La statistique « ménage avec étudiant » ne signifie pas que l’actif est lui-même étudiant. Le principal employeur n’est pas affiché : aucune source homogène ne permet d’identifier avec fiabilité le premier établissement de chacune des 183 communes. Licence Ouverte / Etalab.</div>`)}
       </div>
     </div>`;
   }
@@ -149,7 +149,7 @@
     try {
       await html2pdf().set({
         margin: 0,
-        filename: `fiche-mobilites-${name}-rp2022.pdf`,
+        filename: `fiche-mobilites-${name}-rp2023.pdf`,
         image: { type: "jpeg", quality: 0.96 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
